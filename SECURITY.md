@@ -2,7 +2,7 @@
 
 ## Reporting a vulnerability
 
-If you find a vulnerability, **do not open a public issue**. Message me on Telegram: @coonlink.
+If you find a vulnerability, **do not open a public issue**. Message me on Telegram: @coondev.
 
 Please include:
 
