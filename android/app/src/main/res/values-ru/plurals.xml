@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+✨ CoonDev • https://dev.coonlink.com/
+
+ ▄█▄    ████▄ ████▄    ▄   ██▄   ▄███▄      ▄
+ █▀ ▀▄  █   █ █   █     █  █  █  █▀   ▀      █
+ █   ▀  █   █ █   █ ██   █ █   █ ██▄▄   █     █
+ █▄  ▄▀ ▀████ ▀████ █ █  █ █  █  █▄   ▄▀ █    █
+ ▀███▀              █  █ █ ███▀  ▀███▀    █  █
+                    █   ██                 █▐
+                                           ▐
+-->
+<resources><plurals name="wayne_steps_left"><item quantity="one">Ещё %d шаг до пасхалки</item><item quantity="few">Ещё %d шага до пасхалки</item><item quantity="many">Ещё %d шагов до пасхалки</item><item quantity="other">Ещё %d шага до пасхалки</item></plurals></resources>

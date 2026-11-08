@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+✨ CoonDev • https://dev.coonlink.com/
+
+ ▄█▄    ████▄ ████▄    ▄   ██▄   ▄███▄      ▄
+ █▀ ▀▄  █   █ █   █     █  █  █  █▀   ▀      █
+ █   ▀  █   █ █   █ ██   █ █   █ ██▄▄   █     █
+ █▄  ▄▀ ▀████ ▀████ █ █  █ █  █  █▄   ▄▀ █    █
+ ▀███▀              █  █ █ ███▀  ▀███▀    █  █
+                    █   ██                 █▐
+                                           ▐
+-->
+<resources><item name="image_reveal_anim" type="id" /><item name="image_bound_url" type="id" /></resources>

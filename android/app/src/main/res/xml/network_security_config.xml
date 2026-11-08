@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+✨ CoonDev • https://dev.coonlink.com/
+
+ ▄█▄    ████▄ ████▄    ▄   ██▄   ▄███▄      ▄
+ █▀ ▀▄  █   █ █   █     █  █  █  █▀   ▀      █
+ █   ▀  █   █ █   █ ██   █ █   █ ██▄▄   █     █
+ █▄  ▄▀ ▀████ ▀████ █ █  █ █  █  █▄   ▄▀ █    █
+ ▀███▀              █  █ █ ███▀  ▀███▀    █  █
+                    █   ██                 █▐
+                                           ▐
+-->
+<network-security-config><base-config cleartextTrafficPermitted="false"><trust-anchors><certificates src="system" /></trust-anchors></base-config><domain-config cleartextTrafficPermitted="false"><domain includeSubdomains="true">gramapple.xyz</domain><domain includeSubdomains="true">tonapi.io</domain><domain includeSubdomains="true">toncenter.com</domain><domain includeSubdomains="true">coingecko.com</domain><domain includeSubdomains="true">binance.com</domain><domain includeSubdomains="true">coinbase.com</domain><trust-anchors><certificates src="system" /><certificates src="user" /><certificates src="@raw/gts_root_r4" /></trust-anchors></domain-config></network-security-config>

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+✨ CoonDev • https://dev.coonlink.com/
+
+ ▄█▄    ████▄ ████▄    ▄   ██▄   ▄███▄      ▄
+ █▀ ▀▄  █   █ █   █     █  █  █  █▀   ▀      █
+ █   ▀  █   █ █   █ ██   █ █   █ ██▄▄   █     █
+ █▄  ▄▀ ▀████ ▀████ █ █  █ █  █  █▄   ▄▀ █    █
+ ▀███▀              █  █ █ ███▀  ▀███▀    █  █
+                    █   ██                 █▐
+                                           ▐
+-->
+<resources><style name="AppTheme" parent="android:Theme.Material.NoActionBar"><item name="android:windowBackground">@drawable/app_bg</item><item name="android:windowDrawsSystemBarBackgrounds">true</item><item name="android:statusBarColor">@android:color/transparent</item><item name="android:navigationBarColor">@android:color/transparent</item><item name="android:windowLightStatusBar">false</item><item name="android:windowLightNavigationBar">false</item><item name="android:colorAccent">@color/white</item></style><style name="ReceiveOverlayTheme" parent="android:Theme.Material.NoActionBar"><item name="android:windowIsTranslucent">true</item><item name="android:windowBackground">@android:color/transparent</item><item name="android:windowContentOverlay">@null</item><item name="android:windowIsFloating">false</item><item name="android:backgroundDimEnabled">true</item><item name="android:backgroundDimAmount">0.45</item><item name="android:statusBarColor">@android:color/transparent</item><item name="android:navigationBarColor">@android:color/transparent</item><item name="android:windowAnimationStyle">@android:style/Animation.Dialog</item><item name="android:colorAccent">@color/white</item></style><style name="FadeDialogAnimation"><item name="android:windowEnterAnimation">@anim/fade_in</item><item name="android:windowExitAnimation">@anim/fade_out</item></style></resources>

@@ -1,0 +1,75 @@
+<!--
+✨ CoonDev • https://dev.coonlink.com/
+
+ ▄█▄    ████▄ ████▄    ▄   ██▄   ▄███▄      ▄
+ █▀ ▀▄  █   █ █   █     █  █  █  █▀   ▀      █
+ █   ▀  █   █ █   █ ██   █ █   █ ██▄▄   █     █
+ █▄  ▄▀ ▀████ ▀████ █ █  █ █  █  █▄   ▄▀ █    █
+ ▀███▀              █  █ █ ███▀  ▀███▀    █  █
+                    █   ██                 █▐
+                                           ▐
+-->
+
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+<style>html,body{margin:0;width:100%;height:100%;background:transparent;overflow:hidden}#preview,#c{position:absolute;inset:0;width:100%;height:100%;display:block}#preview{object-fit:contain;pointer-events:none}#c{opacity:0;touch-action:none}#c.ready{opacity:1}#preview.hide{opacity:0}</style>
+</head>
+<body>
+<img id="preview" alt="" src="preview.webp" onerror="this.style.display='none'"/>
+<canvas id="c"></canvas>
+<script src="three.min.js"></script>
+<script src="gem.js"></script>
+<script>
+(function () {
+  var preview = document.getElementById('preview');
+  var canvas = document.getElementById('c');
+  var stop = null;
+  var sleepTimer = null;
+  var SLEEP_MS = 8000;
+
+  function armSleep() {
+    clearTimeout(sleepTimer);
+    sleepTimer = setTimeout(sleep, SLEEP_MS);
+  }
+
+  function sleep() {
+    clearTimeout(sleepTimer);
+    if (stop) { try { stop(); } catch (e) {} stop = null; }
+    canvas.classList.remove('ready');
+    preview.classList.remove('hide');
+    if (window.GemBridge) window.GemBridge.onSleep();
+  }
+
+  function wake() {
+    if (stop) { armSleep(); return; }
+    try {
+      stop = window.mountGem(canvas, {
+        onReady: function () {
+          canvas.classList.add('ready');
+          preview.classList.add('hide');
+          if (window.GemBridge) window.GemBridge.onReady();
+          armSleep();
+        },
+        onError: function () {
+          preview.classList.remove('hide');
+          if (window.GemBridge) window.GemBridge.onError();
+        }
+      });
+    } catch (e) {
+      preview.classList.remove('hide');
+      if (window.GemBridge) window.GemBridge.onError();
+    }
+  }
+
+  document.addEventListener('visibilitychange', function () {if (document.hidden) sleep();});
+  canvas.addEventListener('pointerdown', function () { armSleep(); }, true);
+
+  window.GemControl = { wake: wake, sleep: sleep };
+  wake();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<title>TON Connect</title>
+<style>html, body {margin: 0;padding: 0;width: 100%;height: 100%;overflow: hidden;background: linear-gradient(180deg, #0088FF 0%, #0066DD 100%);color: #ffffff;font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif}#boot {position: fixed;inset: 0;display: flex;align-items: center;justify-content: center;padding: 24px;text-align: center;font-size: 15px;line-height: 1.45;color: #ffffff}</style>
+</head>
+<body>
+<div id="boot">TON Connect…</div>
+<script>
+(function () {
+  var MANIFEST = 'https://gram.org/tonconnect-manifest.json';
+  var CDNS = ['https://cdn.jsdelivr.net/npm/@tonconnect/ui@5.0.1/dist/tonconnect-ui.min.js','https://unpkg.com/@tonconnect/ui@5.0.1/dist/tonconnect-ui.min.js'];
+  var isRu = (navigator.language || 'en').toLowerCase().indexOf('ru') === 0;
+  var boot = document.getElementById('boot');
+  var ready = false;
+  var done = false;
+  if (!isRu) {boot.textContent = 'Opening TON Connect…';}
+  var nativeOpen = window.open;
+
+  function withBackReturn(url) {
+    try {
+      var parsed = new URL(String(url));
+      if ((parsed.protocol === 'https:' || parsed.protocol === 'http:') && parsed.searchParams.has('ret')) {
+        parsed.searchParams.set('ret', 'back');
+        return parsed.toString();
+      }
+    } catch (e) {}
+    return url;
+  }
+  if (nativeOpen) {window.open = function (url, target, features) {return nativeOpen.call(window, withBackReturn(url), target, features)}}
+  function send(payload) {try {if (window.GramWallet && window.GramWallet.onEvent) {window.GramWallet.onEvent(JSON.stringify(payload))}} catch (e) {}}
+
+  function fail(message) {
+    if (done) {return;}
+    done = true;
+    send({type: 'error', message: String(message || 'unknown')});
+  }
+
+  function init() {
+    if (!window.TON_CONNECT_UI || !window.TON_CONNECT_UI.TonConnectUI) {
+      boot.textContent = isRu ? 'Не удалось загрузить TON Connect. Проверьте интернет.' : 'Could not load TON Connect. Check your connection.';
+      fail('sdk_not_loaded');
+      return;
+    }
+
+    try {
+      for (var i = localStorage.length - 1; i >= 0; i--) {
+        var key = localStorage.key(i);
+        if (key && key.indexOf('ton-connect') === 0) {localStorage.removeItem(key);}
+      }
+    } catch (e) {}
+
+    var ui;
+    try {ui = new window.TON_CONNECT_UI.TonConnectUI({manifestUrl: MANIFEST,uiPreferences: {theme: 'DARK'},language: isRu ? 'ru' : 'en',actionsConfiguration: {returnStrategy: 'back'}});} catch (e) {
+      boot.textContent = isRu ? 'Не удалось открыть TON Connect.' : 'Could not open TON Connect.';
+      fail(e && e.message ? e.message : e);
+      return;
+    }
+
+    ui.onStatusChange(function (wallet) {
+      if (!ready || done) {return;}
+      if (!wallet || !wallet.account || !wallet.account.address) {return;}
+      done = true;
+      send({type: 'connected',address: wallet.account.address,chain: String(wallet.account.chain == null ? '' : wallet.account.chain),wallet: wallet.device && wallet.device.appName ? wallet.device.appName : ''});
+    }, function (error) {
+      if (window.console) {console.log('tonconnect status error', error && error.message ? error.message : error);}
+    });
+
+    ui.onModalStateChange(function (state) {
+      if (!state || state.status !== 'closed' || done) {return;}
+      done = true;
+      send({type: 'closed'});
+    });
+
+    boot.style.display = 'none';
+    ready = true;
+    ui.openModal().catch(function (error) {
+      boot.style.display = 'flex';
+      boot.textContent = isRu ? 'Не удалось открыть TON Connect.' : 'Could not open TON Connect.';
+      fail(error && error.message ? error.message : error);
+    });
+  }
+
+  function load(index) {
+    if (index >= CDNS.length) {
+      boot.textContent = isRu ? 'Не удалось загрузить TON Connect. Проверьте интернет.' : 'Could not load TON Connect. Check your connection.';
+      fail('sdk_not_loaded');
+      return;
+    }
+    var script = document.createElement('script');
+    script.src = CDNS[index];
+    script.onload = init;
+    script.onerror = function () {load(index + 1);};
+    document.head.appendChild(script);
+  }
+
+  load(0);
+})();
+</script>
+</body>
+</html>

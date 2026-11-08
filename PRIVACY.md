@@ -1,52 +1,52 @@
-# Gram Wallet — money, data, and install (plain talk)
+# Gram Wallet — честно про деньги, данные и установку
 
-**Updated:** 8 November 2026  
-**Contact:** [@coonlink](https://t.coonlink.com/coonlink)
+**Обновлено:** 8 ноября 2026  
+**Контакт:** [@coonlink](https://t.coonlink.com/coonlink)
 
-Short version: **we do not steal money, we do not ask for seeds/keys, we do not ship malware.** This is a widget and client for viewing a public GRAM/TON balance.  
-The project is **not affiliated** with Telegram or the TON Foundation — independent work.
+Коротко: **деньги не воруем, seed/ключи не просим, вирусов не вшиваем.** Это виджет и клиент для просмотра публичного баланса GRAM/TON.  
+Проект **не связан** с Telegram и TON Foundation — независимая разработка.
 
-## Money
+## Деньги
 
-- The app **does not request transaction signing** (via TON Connect or otherwise). Without your signature in another wallet, funds will not move.
-- We **do not store** seed phrases, passwords, or keys, and we do not ask you to enter them.
-- You enter the address yourself or connect via TON Connect **only to show the balance**. Funds stay in your wallet.
-- This is not a custodial service or a bank: we **do not control** your balance.
+- Приложение **не запрашивает подписание транзакций** (через TON Connect или иначе). Без вашей подписи в другом кошельке средства не уйдут.
+- Мы **не храним** seed-фразы, пароли, ключи и не просим их вводить.
+- Адрес вы указываете сами или подключаете через TON Connect **только чтобы показать баланс**. Деньги остаются в вашем кошельке.
+- Это не кастодиальный сервис и не банк: мы **не распоряжаемся** балансом.
 
-## Data
+## Данные
 
-- Address, balance cache, and notification settings are **stored on the phone**.
-- We **do not collect** contacts, photos, SMS, call history, “ad” location, or build a hidden user profile.
-- The app only talks to the network when the screen would be useless without it:
-  - **public** balance and history for an address you already provided (open APIs such as tonapi / toncenter / gram.org);
-  - APK update check (GitHub);
-  - supporter badge check / unlock: a request to our **Cloudflare Worker**. The Worker sees the **wallet address** and **IP** (as any HTTPS request does). We **do not keep** advertising or analytics logs of these requests; for supporters, KV may store a “this address is a donor” flag (and a bot code), with no keys and no seed.
-- TON addresses are public on-chain. Querying a balance **does not** grant access to your funds.
+- Адрес, кэш баланса и настройки уведомлений **хранятся на телефоне**.
+- Мы **не собираем** контакты, фото, SMS, историю звонков, геолокацию «для рекламы» и не строим скрытый профиль пользователя.
+- Для работы приложение ходит наружу только туда, без чего экран бесполезен:
+  - **публичный** баланс и история по уже известному адресу (открытые API: tonapi / toncenter / gram.org и т.п.);
+  - проверка новой версии APK (GitHub);
+  - проверка / активация значка спонсора: запрос на наш **Cloudflare Worker**. Worker видит **адрес кошелька** и **IP** (как любой HTTPS). Мы **не ведём** рекламные или аналитические логи этих запросов; для спонсоров в KV может сохраняться флаг «этот адрес — донор» (и код из бота), без ключей и без seed.
+- Адреса в TON публичны в блокчейне. Сам факт запроса баланса **не даёт** доступа к вашим деньгам.
 
-## Transaction notifications
+## Уведомления о транзакциях
 
-- If enabled: **the phone itself** periodically polls a public history API for the address stored on the device and shows a local notification.
-- That address is **not sent** to our server for pushes and is **not stored** by us for notifications.
+- Если включены: **сам телефон** по расписанию опрашивает публичный API истории по сохранённому на устройстве адресу и показывает локальное уведомление.
+- Адрес для уведомлений **не отправляется** на наш сервер и у нас для пушей **не хранится**.
 
-## Install and “viruses”
+## Установка и «вирусы»
 
-- The APK comes from our repository / bot. We **do not embed** miners, trojans, or hidden password stealers.
-- Installing outside Play Store needs “unknown sources” — normal for a sideloaded APK, not proof of malware.
-- Source and releases are public — you can review them before installing.
+- APK из нашего репозитория / бота. Мы **не встраиваем** майнеры, трояны и скрытый сбор паролей.
+- Установка вне Play Store требует разрешения «из неизвестных источников» — это нормально для стороннего APK, не доказательство вируса.
+- Исходники и релизы открыты — можно проверить до установки.
 
-## Donations (optional)
+## Пожертвования (по желанию)
 
-In the bot you can support the project (Stars or any tiny TON amount) — **voluntary**.
+В боте можно поддержать проект (Stars или любая копейка TON) — **добровольно**.
 
-- Prefer not to — tap “Skip” and download the file. Paying is not required.
-- The supporter badge is cosmetic “thanks”, not access to funds.
+- Не хотите — «Пропустить» и скачайте файл. Платить не обязательно.
+- Значок спонсора — косметика «спасибо», не доступ к деньгам.
 
-## What we do / do not promise
+## За что мы отвечаем / за что нет
 
-**We currently provide:** home-screen widget and balance screen, history, receive QR, optional local notifications, supporter badge.
+**Сейчас делаем:** виджет и экран баланса, история, QR получения, опциональные локальные уведомления, значок спонсора.
 
-**We do not do or promise:** key custody, price guarantees, fund insurance, official Telegram / TON Foundation status.
+**Не делаем и не обещаем:** хранение ключей, гарантию курса, страховку средств, официальный статус Telegram / TON Foundation.
 
-**About the future:** this version has **no** faucet / activation that tops up and returns GRAM. If that ships, the Money and Data sections will be rewritten (third party + fund movement). Until then, the statements above apply to the current app only.
+**Важно про будущее:** в этой версии **нет** крана / активации с пополнением и возвратом средств. Если появится — разделы «Деньги» и «Данные» будут переписаны (третья сторона и движение GRAM). Пока этого нет — обещания выше относятся к текущему приложению.
 
-If you are unsure — do not install. If you install — keep keys only on your side.
+Если сомневаетесь — не ставьте. Если ставите — ключи оставляйте только у себя.
