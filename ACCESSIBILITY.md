@@ -18,7 +18,7 @@ Gram Wallet should be usable by everyone, including people with low vision, limi
 
 ## Reporting a problem
 
-If something is hard to use or read, message me on Telegram: @coonlink. Please include:
+If something is hard to use or read, message me on Telegram: @coondev. Please include:
 
 - phone model and Android version;
 - which screen or widget;
