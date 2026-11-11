@@ -344,7 +344,18 @@ final class Api {
             }
             return new Tx(id, Tx.TYPE_NFT, incoming, success, time, 0d, "", "", nftName, collectionName, nftImage(nft));
         }
-        return null;
+        String source = details.optString("source", details.optString("from", ""));
+        String destination = details.optString("destination", details.optString("to", ""));
+        boolean incoming = address.equals(destination);
+        if (!incoming && !address.equals(source) && destination.isEmpty()) {incoming = false;}
+        double gram = parseDouble(details.optString("value", details.optString("amount", ""))) / 1_000_000_000d;
+        if (Double.isNaN(gram) || Double.isInfinite(gram) || gram < 0) {gram = 0d;}
+        String counterparty = incoming ? source : destination;
+        if (counterparty.isEmpty()) {counterparty = incoming ? source : destination;}
+        JSONObject actionDetails = action.optJSONObject("details");
+        String comment = actionDetails == null ? "" : actionDetails.optString("comment", "");
+        String kind = type == null || type.isEmpty() ? "other" : type;
+        return new Tx(id, kind, incoming, success, time, gram, nameFor(names, counterparty), comment, null, null, null);
     }
 
     private static String nftImage(JSONObject nft) {

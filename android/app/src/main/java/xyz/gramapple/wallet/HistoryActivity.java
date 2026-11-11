@@ -14,6 +14,7 @@ package xyz.gramapple.wallet;
 import android.app.Activity;
 import android.app.Dialog;
 import android.content.Context;
+import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.RenderEffect;
 import android.graphics.Shader;
@@ -32,10 +33,12 @@ import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.ListView;
 import android.widget.ProgressBar;
+import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
@@ -43,14 +46,30 @@ import java.util.Locale;
 import java.util.Set;
 
 public class HistoryActivity extends Activity {
+    static final String EXTRA_TX_ID = "tx_id";
+    static final String EXTRA_SPAM_AMOUNT = "spam_amount";
+    static final String EXTRA_SPAM = "spam";
     private ListView listView;
     private TextView statusView;
+    private TextView spamBanner;
     private ProgressBar progressView;
     private Button moreButton;
+    private TextView filterButton;
     private TxAdapter adapter;
+    private final List<Tx> allItems = new ArrayList<>();
     private String address;
     private String nextCursor;
     private boolean loading;
+    private String dirFilter = "all";
+    private String typeFilter = "all";
+    private String periodFilter = "all";
+    private boolean hideSpam = true;
+    private String focusTxId = "";
+    private boolean pendingSpamBanner;
+    private double spamAmount;
+    private int autoLoadPages;
+    private static final int AUTO_TARGET = 12;
+    private static final int AUTO_MAX_PAGES = 40;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -60,8 +79,11 @@ public class HistoryActivity extends Activity {
         applySystemBarInsets(findViewById(R.id.history_root));
         listView = findViewById(R.id.history_list);
         statusView = findViewById(R.id.history_status);
+        spamBanner = findViewById(R.id.history_spam_banner);
         progressView = findViewById(R.id.history_progress);
+        filterButton = findViewById(R.id.history_filter);
         findViewById(R.id.history_back).setOnClickListener(view -> finish());
+        filterButton.setOnClickListener(v -> showFilterSheet());
         moreButton = new Button(this);
         moreButton.setBackgroundResource(R.drawable.button_white);
         moreButton.setText(R.string.history_load_more);
@@ -82,6 +104,13 @@ public class HistoryActivity extends Activity {
             if (position < 0 || position >= adapter.getCount()) {return;}
             showTxDetail(adapter.getItem(position));
         });
+        dirFilter = Store.getHistDir(this);
+        typeFilter = Store.getHistType(this);
+        periodFilter = Store.getHistPeriod(this);
+        hideSpam = Store.isHideSpam(this);
+        if ("day".equals(periodFilter)) {periodFilter = "all";}
+        refreshFilterButton();
+        readIntent(getIntent());
         address = Store.getAddress(this);
         if (address == null) {
             Toast.makeText(this, R.string.save_address_first, Toast.LENGTH_SHORT).show();
@@ -89,6 +118,228 @@ public class HistoryActivity extends Activity {
             return;
         }
         load(null, false);
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        readIntent(intent);
+        applyFilters(true);
+    }
+
+    private void readIntent(Intent intent) {
+        if (intent == null) {return;}
+        focusTxId = intent.getStringExtra(EXTRA_TX_ID);
+        if (focusTxId == null) {focusTxId = "";}
+        pendingSpamBanner = intent.getBooleanExtra(EXTRA_SPAM, false);
+        spamAmount = intent.getDoubleExtra(EXTRA_SPAM_AMOUNT, 0d);
+        if (pendingSpamBanner) {showSpamBanner(spamAmount);}
+    }
+
+    private void showSpamBanner(double amount) {
+        spamBanner.setVisibility(View.VISIBLE);
+        spamBanner.setText(getString(R.string.history_spam_banner, Format.shortGram(Math.max(0d, amount))));
+    }
+
+    private void refreshFilterButton() {
+        boolean active = !"all".equals(dirFilter) || !"all".equals(typeFilter) || !"all".equals(periodFilter) || hideSpam;
+        filterButton.setTextColor(getColor(active ? R.color.white : R.color.white));
+        filterButton.setAlpha(active ? 1f : 0.85f);
+    }
+
+    private void showFilterSheet() {
+        final Dialog dialog = new Dialog(this);
+        dialog.setContentView(R.layout.dialog_history_filter);
+        Window window = dialog.getWindow();
+        if (window != null) {
+            window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+            window.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            window.setGravity(android.view.Gravity.BOTTOM);
+        }
+        final String[] draftDir = {dirFilter};
+        final String[] draftType = {typeFilter};
+        final String[] draftPeriod = {periodFilter};
+        final boolean[] draftSpam = {hideSpam};
+        final TextView dirAll = dialog.findViewById(R.id.filter_dir_all);
+        final TextView dirIn = dialog.findViewById(R.id.filter_dir_in);
+        final TextView dirOut = dialog.findViewById(R.id.filter_dir_out);
+        final Switch spamSwitch = dialog.findViewById(R.id.filter_hide_spam);
+        spamSwitch.setChecked(hideSpam);
+        styleSpamSwitch(spamSwitch);
+        spamSwitch.setOnCheckedChangeListener((b, checked) -> {
+            draftSpam[0] = checked;
+            styleSpamSwitch(spamSwitch);
+        });
+        final View[] typeRows = {
+                dialog.findViewById(R.id.filter_type_all), dialog.findViewById(R.id.filter_type_ton),
+                dialog.findViewById(R.id.filter_type_token), dialog.findViewById(R.id.filter_type_nft),
+                dialog.findViewById(R.id.filter_type_swap), dialog.findViewById(R.id.filter_type_stake),
+                dialog.findViewById(R.id.filter_type_domain), dialog.findViewById(R.id.filter_type_contract)
+        };
+        final String[] typeKeys = {"all", "ton", "token", "nft", "swap", "stake", "domain", "contract"};
+        final int[] typeLabels = {
+                R.string.filter_type_all, R.string.filter_type_ton, R.string.filter_type_token, R.string.filter_type_nft,
+                R.string.filter_type_swap, R.string.filter_type_stake, R.string.filter_type_domain, R.string.filter_type_contract
+        };
+        final View[] periodRows = {
+                dialog.findViewById(R.id.filter_period_all), dialog.findViewById(R.id.filter_period_week),
+                dialog.findViewById(R.id.filter_period_month), dialog.findViewById(R.id.filter_period_quarter),
+                dialog.findViewById(R.id.filter_period_year)
+        };
+        final String[] periodKeys = {"all", "week", "month", "quarter", "year"};
+        final int[] periodLabels = {
+                R.string.filter_period_all, R.string.filter_period_week, R.string.filter_period_month,
+                R.string.filter_period_quarter, R.string.filter_period_year
+        };
+        Runnable paint = () -> {
+            styleDirSeg(dirAll, "all".equals(draftDir[0]));
+            styleDirSeg(dirIn, "in".equals(draftDir[0]));
+            styleDirSeg(dirOut, "out".equals(draftDir[0]));
+            for (int i = 0; i < typeRows.length; i++) {bindOptionRow(typeRows[i], getString(typeLabels[i]), typeKeys[i].equals(draftType[0]));}
+            for (int i = 0; i < periodRows.length; i++) {bindOptionRow(periodRows[i], getString(periodLabels[i]), periodKeys[i].equals(draftPeriod[0]));}
+        };
+        dirAll.setOnClickListener(v -> {draftDir[0] = "all"; paint.run();});
+        dirIn.setOnClickListener(v -> {draftDir[0] = "in"; paint.run();});
+        dirOut.setOnClickListener(v -> {draftDir[0] = "out"; paint.run();});
+        for (int i = 0; i < typeRows.length; i++) {
+            final String key = typeKeys[i];
+            typeRows[i].setOnClickListener(v -> {draftType[0] = key; paint.run();});
+        }
+        for (int i = 0; i < periodRows.length; i++) {
+            final String key = periodKeys[i];
+            periodRows[i].setOnClickListener(v -> {draftPeriod[0] = key; paint.run();});
+        }
+        dialog.findViewById(R.id.filter_reset).setOnClickListener(v -> {
+            draftDir[0] = "all";
+            draftType[0] = "all";
+            draftPeriod[0] = "all";
+            draftSpam[0] = true;
+            spamSwitch.setChecked(true);
+            styleSpamSwitch(spamSwitch);
+            paint.run();
+        });
+        dialog.findViewById(R.id.filter_done).setOnClickListener(v -> {
+            dirFilter = draftDir[0];
+            typeFilter = draftType[0];
+            periodFilter = draftPeriod[0];
+            hideSpam = draftSpam[0];
+            Store.setHistDir(this, dirFilter);
+            Store.setHistType(this, typeFilter);
+            Store.setHistPeriod(this, periodFilter);
+            Store.setHideSpam(this, hideSpam);
+            refreshFilterButton();
+            autoLoadPages = 0;
+            applyFilters(false);
+            dialog.dismiss();
+        });
+        paint.run();
+        dialog.show();
+    }
+
+    private void styleDirSeg(TextView chip, boolean on) {
+        if (on) {chip.setBackgroundResource(R.drawable.filter_seg_on);}
+        else {chip.setBackgroundColor(Color.TRANSPARENT);}
+        chip.setTypeface(null, on ? android.graphics.Typeface.BOLD : android.graphics.Typeface.NORMAL);
+    }
+
+    private void styleSpamSwitch(Switch spamSwitch) {
+        int on = 0xFF0088FF;
+        int off = 0xFFC7C7CC;
+        if (Build.VERSION.SDK_INT >= 23) {
+            spamSwitch.getThumbDrawable().setTint(spamSwitch.isChecked() ? on : 0xFFF4F4F5);
+            spamSwitch.getTrackDrawable().setTint(spamSwitch.isChecked() ? 0x990088FF : off);
+        }
+    }
+
+    private void bindOptionRow(View row, String label, boolean selected) {
+        TextView text = row.findViewById(R.id.filter_option_label);
+        ImageView check = row.findViewById(R.id.filter_option_check);
+        text.setText(label);
+        check.setVisibility(selected ? View.VISIBLE : View.GONE);
+    }
+
+    private void applyFilters(boolean openFocus) {
+        List<Tx> visible = filteredItems();
+        adapter.replaceAll(visible);
+        if (shouldAutoLoadMore(visible.size())) {
+            if (visible.isEmpty()) {
+                statusView.setVisibility(View.GONE);
+                progressView.setVisibility(View.VISIBLE);
+            }
+            autoLoadPages += 1;
+            load(nextCursor, true);
+            return;
+        }
+        progressView.setVisibility(View.GONE);
+        moreButton.setVisibility(nextCursor == null ? View.GONE : View.VISIBLE);
+        if (adapter.getCount() == 0 && !loading) {
+            statusView.setText(R.string.history_empty);
+            statusView.setVisibility(View.VISIBLE);
+        } else if (adapter.getCount() > 0) {statusView.setVisibility(View.GONE);}
+        if (openFocus || (focusTxId != null && !focusTxId.isEmpty())) {maybeOpenFocus();}
+    }
+
+    private List<Tx> filteredItems() {
+        List<Tx> visible = new ArrayList<>();
+        long minTime = periodMinTime(periodFilter);
+        for (Tx tx : allItems) {
+            if (hideSpam && tx.isSpam()) {continue;}
+            if ("in".equals(dirFilter) && !tx.incoming) {continue;}
+            if ("out".equals(dirFilter) && tx.incoming) {continue;}
+            if (!tx.matchesTypeFilter(typeFilter)) {continue;}
+            if (minTime > 0 && tx.time < minTime) {continue;}
+            visible.add(tx);
+        }
+        return visible;
+    }
+
+    private boolean shouldAutoLoadMore(int visibleCount) {
+        if (loading || nextCursor == null || autoLoadPages >= AUTO_MAX_PAGES) {return false;}
+        if (visibleCount >= AUTO_TARGET) {return false;}
+        return true;
+    }
+
+    private void maybeOpenFocus() {
+        if (pendingSpamBanner) {
+            showSpamBanner(spamAmount);
+            focusTxId = "";
+            return;
+        }
+        if (focusTxId == null || focusTxId.isEmpty()) {return;}
+        for (int i = 0; i < adapter.getCount(); i++) {
+            Tx tx = adapter.getItem(i);
+            if (focusTxId.equals(tx.id)) {
+                listView.setSelection(i);
+                showTxDetail(tx);
+                focusTxId = "";
+                return;
+            }
+        }
+        for (Tx tx : allItems) {
+            if (!focusTxId.equals(tx.id)) {continue;}
+            if (tx.isSpam()) {
+                showSpamBanner(tx.gram);
+                pendingSpamBanner = true;
+                spamAmount = tx.gram;
+            } else {showTxDetail(tx);}
+            focusTxId = "";
+            return;
+        }
+    }
+
+    private static long periodMinTime(String period) {
+        if (period == null || "all".equals(period)) {return 0L;}
+        Calendar cal = Calendar.getInstance();
+        cal.set(Calendar.HOUR_OF_DAY, 0);
+        cal.set(Calendar.MINUTE, 0);
+        cal.set(Calendar.SECOND, 0);
+        cal.set(Calendar.MILLISECOND, 0);
+        if ("week".equals(period)) {cal.add(Calendar.DAY_OF_YEAR, -7); return cal.getTimeInMillis() / 1000L;}
+        if ("month".equals(period)) {cal.add(Calendar.DAY_OF_YEAR, -30); return cal.getTimeInMillis() / 1000L;}
+        if ("quarter".equals(period)) {cal.add(Calendar.DAY_OF_YEAR, -90); return cal.getTimeInMillis() / 1000L;}
+        if ("year".equals(period)) {cal.add(Calendar.DAY_OF_YEAR, -365); return cal.getTimeInMillis() / 1000L;}
+        return 0L;
     }
 
     private void loadMore() {if (nextCursor != null) {load(nextCursor, true);}}
@@ -159,6 +410,8 @@ public class HistoryActivity extends Activity {
         if (!append) {
             statusView.setVisibility(View.GONE);
             progressView.setVisibility(View.VISIBLE);
+            allItems.clear();
+            autoLoadPages = 0;
         }
         moreButton.setVisibility(View.GONE);
         final Context appContext = getApplicationContext();
@@ -168,14 +421,10 @@ public class HistoryActivity extends Activity {
                 runOnUiThread(() -> {
                     if (isFinishing()) {return;}
                     loading = false;
-                    progressView.setVisibility(View.GONE);
-                    adapter.addAll(page.items);
+                    if (!append) {allItems.clear();}
+                    allItems.addAll(page.items);
                     nextCursor = page.next;
-                    moreButton.setVisibility(nextCursor == null ? View.GONE : View.VISIBLE);
-                    if (adapter.getCount() == 0) {
-                        statusView.setText(R.string.history_empty);
-                        statusView.setVisibility(View.VISIBLE);
-                    } else {statusView.setVisibility(View.GONE);}
+                    applyFilters(true);
                 });
             } catch (Exception error) {
                 runOnUiThread(() -> {
@@ -205,7 +454,12 @@ public class HistoryActivity extends Activity {
             this.items = items;
         }
 
-        void addAll(List<Tx> more) {items.addAll(more); notifyDataSetChanged();}
+        void replaceAll(List<Tx> next) {
+            items.clear();
+            items.addAll(next);
+            notifyDataSetChanged();
+        }
+
         @Override public int getCount() {return items.size();}
         @Override public Tx getItem(int position) {return items.get(position);}
         @Override public long getItemId(int position) {return position;}
@@ -243,7 +497,7 @@ public class HistoryActivity extends Activity {
                 comment.setOnClickListener(null);
                 comment.setClickable(false);
                 comment.setVisibility(View.GONE);
-            } else {
+            } else if (Tx.TYPE_TON.equals(tx.type)) {
                 badge.setVisibility(View.GONE);
                 image.setVisibility(View.GONE);
                 ImageLoader.load(activity, image, "");
@@ -257,6 +511,23 @@ public class HistoryActivity extends Activity {
                 bindComment(comment, tx, text);
                 String sign = tx.incoming ? "+ " : "− ";
                 amount.setText(sign + Format.shortGram(tx.gram) + " GRAM");
+                amount.setTextColor(0xFFFFFFFF);
+            } else {
+                badge.setText("···");
+                badge.setVisibility(View.VISIBLE);
+                image.setVisibility(View.GONE);
+                ImageLoader.load(activity, image, "");
+                arrow.setVisibility(View.GONE);
+                title.setText(activity.getString(R.string.tx_contract));
+                subtitle.setText(shortAddress(tx.counterparty));
+                clearCommentBlur(comment);
+                comment.setOnClickListener(null);
+                comment.setClickable(false);
+                comment.setVisibility(View.GONE);
+                if (tx.gram > 0) {
+                    String sign = tx.incoming ? "+ " : "− ";
+                    amount.setText(sign + Format.shortGram(tx.gram) + " GRAM");
+                } else {amount.setText("—");}
                 amount.setTextColor(0xFFFFFFFF);
             }
             time.setText(dateFormat.format(new Date(tx.time * 1000L)));

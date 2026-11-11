@@ -33,6 +33,10 @@ final class Store {
     private static final String KEY_NOTIFY_BASELINE_SET = "notify_baseline_set";
     private static final String KEY_DONOR = "donor";
     private static final String KEY_DONOR_ADDRESS = "donor_address";
+    private static final String KEY_HIDE_SPAM = "hide_spam_on";
+    private static final String KEY_HIST_DIR = "hist_dir";
+    private static final String KEY_HIST_TYPE = "hist_type";
+    private static final String KEY_HIST_PERIOD = "hist_period";
     private Store() {}
 
     static String getAddress(Context context) {
@@ -110,5 +114,13 @@ final class Store {
         preferences(context).edit().putString(KEY_DONOR_ADDRESS, address).putBoolean(KEY_DONOR, donor).apply();
     }
 
+    static boolean isHideSpam(Context context) {return preferences(context).getBoolean(KEY_HIDE_SPAM, true);}
+    static void setHideSpam(Context context, boolean hide) {preferences(context).edit().putBoolean(KEY_HIDE_SPAM, hide).apply();}
+    static String getHistDir(Context context) {return preferences(context).getString(KEY_HIST_DIR, "all");}
+    static void setHistDir(Context context, String dir) {preferences(context).edit().putString(KEY_HIST_DIR, dir == null ? "all" : dir).apply();}
+    static String getHistType(Context context) {return preferences(context).getString(KEY_HIST_TYPE, "all");}
+    static void setHistType(Context context, String type) {preferences(context).edit().putString(KEY_HIST_TYPE, type == null ? "all" : type).apply();}
+    static String getHistPeriod(Context context) {return preferences(context).getString(KEY_HIST_PERIOD, "all");}
+    static void setHistPeriod(Context context, String period) {preferences(context).edit().putString(KEY_HIST_PERIOD, period == null ? "all" : period).apply();}
     private static SharedPreferences preferences(Context context) {return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);}
 }

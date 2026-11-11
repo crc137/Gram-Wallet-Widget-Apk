@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+✨ CoonDev • https://dev.coonlink.com/
+
+ ▄█▄    ████▄ ████▄    ▄   ██▄   ▄███▄      ▄
+ █▀ ▀▄  █   █ █   █     █  █  █  █▀   ▀      █
+ █   ▀  █   █ █   █ ██   █ █   █ ██▄▄   █     █
+ █▄  ▄▀ ▀████ ▀████ █ █  █ █  █  █▄   ▄▀ █    █
+ ▀███▀              █  █ █ ███▀  ▀███▀    █  █
+                    █   ██                 █▐
+                                           ▐
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="48dp" android:background="?android:attr/selectableItemBackground" android:clickable="true" android:focusable="true" android:gravity="center_vertical" android:orientation="horizontal" android:paddingStart="14dp" android:paddingEnd="14dp">
+    <TextView android:id="@+id/filter_option_label" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:textColor="#FF111111" android:textSize="16sp" />
+    <ImageView android:id="@+id/filter_option_check" android:layout_width="20dp" android:layout_height="20dp" android:contentDescription="@null" android:src="@drawable/filter_check" android:visibility="gone" />
+</LinearLayout>

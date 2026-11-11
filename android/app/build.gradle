@@ -20,8 +20,8 @@ android {
         applicationId "xyz.gramapple.wallet"
         minSdk 26
         targetSdk 34
-        versionCode 74
-        versionName "26.1.74"
+        versionCode 79
+        versionName "26.1.79"
     }
 
     buildTypes {
