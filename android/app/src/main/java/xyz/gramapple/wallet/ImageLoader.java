@@ -39,12 +39,12 @@ import java.util.concurrent.Executors;
 final class ImageLoader {
     private static final int MAX_BYTES = 8 * 1024 * 1024;
     private static final int TARGET_PX = 160;
-    private static final int REVEAL_MS = 680;
+    private static final int REVEAL_MS = 320;
     private static final float BLUR_START = 22f;
     private static final float SCALE_START = 1.06f;
     private static final PathInterpolator EASE = new PathInterpolator(0.22f, 1f, 0.36f, 1f);
     private static final LruCache<String, Bitmap> CACHE = new LruCache<String, Bitmap>(8 * 1024 * 1024) {@Override protected int sizeOf(String key, Bitmap value) {return value.getByteCount();}};
-    private static final ExecutorService POOL = Executors.newFixedThreadPool(3);
+    private static final ExecutorService POOL = Executors.newFixedThreadPool(6);
     private static final Handler MAIN = new Handler(Looper.getMainLooper());
     private ImageLoader() {}
 
@@ -177,8 +177,8 @@ final class ImageLoader {
         HttpURLConnection connection = null;
         try {
             connection = (HttpURLConnection) new URL(url).openConnection();
-            connection.setConnectTimeout(12000);
-            connection.setReadTimeout(20000);
+            connection.setConnectTimeout(5000);
+            connection.setReadTimeout(10000);
             connection.setInstanceFollowRedirects(true);
             connection.setRequestProperty("User-Agent", "GramWalletWidget_app (Android)");
             connection.setRequestProperty("Accept", "image/*,*/*;q=0.8");

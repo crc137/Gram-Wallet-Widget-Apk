@@ -13,7 +13,9 @@
 package xyz.gramapple.wallet;
 import android.app.Activity;
 import android.content.Context;
+import android.content.Intent;
 import android.graphics.Color;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
@@ -67,6 +69,10 @@ public class NftsActivity extends Activity {
         listView.addFooterView(moreButton, null, false);
         adapter = new NftAdapter(this, new ArrayList<>());
         listView.setAdapter(adapter);
+        listView.setOnItemClickListener((p, v, pos, id) -> {
+            if (pos < 0 || pos >= adapter.getCount()) {return;}
+            openNft(adapter.getItem(pos));
+        });
         address = Store.getAddress(this);
         if (address == null) {
             Toast.makeText(this, R.string.save_address_first, Toast.LENGTH_SHORT).show();
@@ -77,6 +83,17 @@ public class NftsActivity extends Activity {
     }
 
     private void loadMore() {if (nextCursor != null) {load(nextCursor, true);}}
+
+    private void openNft(Nft nft) {
+        if (nft == null) {return;}
+        String url = nft.openUrl();
+        if (url == null) {
+            Toast.makeText(this, R.string.nfts_open_fail, Toast.LENGTH_SHORT).show();
+            return;
+        }
+        try {startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));}
+        catch (Exception e) {Toast.makeText(this, R.string.nfts_open_fail, Toast.LENGTH_SHORT).show();}
+    }
 
     private void load(final String cursor, final boolean append) {
         if (loading) {return;}
@@ -102,6 +119,7 @@ public class NftsActivity extends Activity {
                         statusView.setText(R.string.nfts_empty);
                         statusView.setVisibility(View.VISIBLE);
                     } else {statusView.setVisibility(View.GONE);}
+                    if (nextCursor != null) {load(nextCursor, true);}
                 });
             } catch (Exception error) {
                 runOnUiThread(() -> {

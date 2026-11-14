@@ -22,7 +22,7 @@ public class BootReceiver extends BroadcastReceiver {
         if (Intent.ACTION_BOOT_COMPLETED.equals(action)|| Intent.ACTION_MY_PACKAGE_REPLACED.equals(action)) {
             GramWidgetProvider.schedule(context);
             GramWidgetProvider.refreshAsync(context, goAsync());
-            if (Store.isNotifyEnabled(context)) {
+            if (Store.wantsAnyNotify(context)) {
                 Notifications.ensureChannel(context);
                 Notifications.schedule(context);
             }

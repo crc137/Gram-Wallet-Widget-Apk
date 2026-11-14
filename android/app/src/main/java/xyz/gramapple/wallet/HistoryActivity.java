@@ -21,9 +21,6 @@ import android.graphics.Shader;
 import android.graphics.drawable.ColorDrawable;
 import android.os.Build;
 import android.os.Bundle;
-import android.text.SpannableString;
-import android.text.Spanned;
-import android.text.style.ForegroundColorSpan;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
@@ -344,65 +341,7 @@ public class HistoryActivity extends Activity {
 
     private void loadMore() {if (nextCursor != null) {load(nextCursor, true);}}
 
-    private void showTxDetail(Tx tx) {
-        if (tx == null) {return;}
-        Dialog dialog = new Dialog(this);
-        dialog.setContentView(R.layout.dialog_tx_detail);
-        Window window = dialog.getWindow();
-        if (window != null) {
-            window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
-            window.setLayout(Math.round(getResources().getDisplayMetrics().widthPixels * 0.9f), ViewGroup.LayoutParams.WRAP_CONTENT);
-        }
-        View gem = dialog.findViewById(R.id.tx_detail_gem);
-        TextView amount = dialog.findViewById(R.id.tx_detail_amount);
-        TextView usd = dialog.findViewById(R.id.tx_detail_usd);
-        TextView partyLabel = dialog.findViewById(R.id.tx_detail_party_label);
-        TextView party = dialog.findViewById(R.id.tx_detail_party);
-        TextView addressView = dialog.findViewById(R.id.tx_detail_address);
-        TextView comment = dialog.findViewById(R.id.tx_detail_comment);
-        TextView date = dialog.findViewById(R.id.tx_detail_date);
-        partyLabel.setText(tx.incoming ? R.string.tx_detail_sender : R.string.tx_detail_recipient);
-        if (tx.isNft()) {
-            gem.setVisibility(View.GONE);
-            amount.setText(tx.incoming ? "+ NFT" : "− NFT");
-            amount.setTextColor(tx.incoming ? 0xFF34C759 : 0xFF111111);
-            usd.setText(tx.nftName.isEmpty() ? getString(R.string.tx_nft) : tx.nftName);
-            party.setText(tx.collection.isEmpty() ? getString(R.string.tx_detail_dash) : tx.collection);
-            addressView.setText(getString(R.string.tx_detail_dash));
-            comment.setText(getString(R.string.tx_detail_dash));
-        } else {
-            gem.setVisibility(View.VISIBLE);
-            String sign = tx.incoming ? "+" : "−";
-            String grams = Format.shortGram(tx.gram);
-            amount.setText(gramAmountSpan(sign + grams, !tx.success), TextView.BufferType.SPANNABLE);
-            WalletData data = Store.load(this);
-            if (data != null && data.hasUsd && data.gram > 0) {
-                double approx = tx.gram * (data.totalUsd / data.gram);
-                usd.setText(getString(R.string.tx_detail_usd, Format.shortGram(approx)));
-            } else {usd.setText(R.string.tx_detail_dash);}
-            String who = tx.counterparty == null || tx.counterparty.isEmpty() ? getString(R.string.tx_unknown) : tx.counterparty;
-            party.setText(who.indexOf('.') >= 0 || who.length() <= 18 ? who : who.substring(0, 6) + "…" + who.substring(who.length() - 4));
-            addressView.setText(Format.chunkAddress(who).replace('\n', ' '));
-            String note = tx.comment == null ? "" : tx.comment.trim().replace('\n', ' ');
-            if (note.length() > 120) {note = note.substring(0, 117) + "…";}
-            comment.setText(note.isEmpty() ? getString(R.string.tx_detail_dash) : note);
-            comment.setMaxLines(3);
-        }
-        date.setText(new SimpleDateFormat("MMM d, HH:mm", Locale.getDefault()).format(new Date(tx.time * 1000L)));
-        Runnable dismiss = () -> {try {if (dialog.isShowing()) {dialog.dismiss();}} catch (Exception ignored) {}};
-        dialog.findViewById(R.id.tx_detail_close).setOnClickListener(v -> dismiss.run());
-        dialog.findViewById(R.id.tx_detail_ok).setOnClickListener(v -> dismiss.run());
-        dialog.show();
-    }
-
-    private CharSequence gramAmountSpan(String value, boolean failed) {
-        String label = " Grams";
-        SpannableString text = new SpannableString(value + label);
-        int numColor = failed ? 0xFFFF3B30 : 0xFF34C759;
-        text.setSpan(new ForegroundColorSpan(numColor), 0, value.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-        text.setSpan(new ForegroundColorSpan(0xFF0088FF), value.length(), text.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-        return text;
-    }
+    private void showTxDetail(Tx tx) {TxDetail.show(this, tx);}
 
     private void load(final String cursor, final boolean append) {
         if (loading) {return;}

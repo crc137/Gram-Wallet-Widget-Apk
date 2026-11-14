@@ -10,4 +10,4 @@
                     █   ██                 █▐
                                            ▐
 -->
-<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android" android:initialLayout="@layout/widget_gram" android:minHeight="110dp" android:minWidth="250dp" android:resizeMode="horizontal|vertical" android:updatePeriodMillis="0" android:widgetCategory="home_screen" />
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android" android:configure="xyz.gramapple.wallet.WidgetConfigureActivity" android:initialLayout="@layout/widget_gram" android:minHeight="110dp" android:minWidth="250dp" android:resizeMode="horizontal|vertical" android:updatePeriodMillis="0" android:widgetCategory="home_screen" />

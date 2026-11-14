@@ -25,6 +25,7 @@ import android.view.animation.LinearInterpolator;
 
 public class WalletCardView extends View {
     public interface OnQrClickListener {void onQrClick();}
+    public interface OnCardTapListener {void onCardTap();}
     public interface OnMassClickListener {void onMassClick();}
     private Bitmap bitmap;
     private String balance = "—";
@@ -33,6 +34,7 @@ public class WalletCardView extends View {
     private CardDecor decor = CardDecor.EMPTY;
     private OnQrClickListener qrListener;
     private OnMassClickListener massListener;
+    private OnCardTapListener cardTapListener;
     private final RectF qrRect = new RectF();
     private final RectF massRect = new RectF();
     private final Paint glowPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -69,18 +71,28 @@ public class WalletCardView extends View {
     }
 
     public void setValues(String balance, String usd) {
-        this.balance = balance;
-        this.usd = usd;
-        if (!loading) {rebuild();}
+        apply(balance, usd, this.address, this.decor, false);
     }
 
     public void setAddress(String address) {
-        this.address = address == null ? "" : address;
-        if (!loading) {rebuild();}
+        apply(this.balance, this.usd, address, this.decor, false);
     }
 
-    public void setDecor(CardDecor decor) {
-        this.decor = decor == null ? CardDecor.EMPTY : decor;
+    public void setDecor(CardDecor decor) {apply(this.balance, this.usd, this.address, decor, true);}
+    public void apply(String balance, String usd, String address, CardDecor decor) {apply(balance, usd, address, decor, decor != null);}
+    public void refreshArt() {if (!loading) {rebuild();}}
+
+    private void apply(String balance, String usd, String address, CardDecor decor, boolean replaceDecor) {
+        String nextBalance = balance == null ? this.balance : balance;
+        String nextUsd = usd == null ? this.usd : usd;
+        String nextAddress = address == null ? this.address : address;
+        CardDecor nextDecor = replaceDecor ? (decor == null ? CardDecor.EMPTY : decor) : this.decor;
+        if (nextDecor == null) {nextDecor = CardDecor.EMPTY;}
+        boolean same = nextBalance.equals(this.balance) && nextUsd.equals(this.usd) && nextAddress.equals(this.address) && sameDecor(this.decor, nextDecor);
+        this.balance = nextBalance;
+        this.usd = nextUsd;
+        this.address = nextAddress;
+        this.decor = nextDecor;
         if (this.decor.background != null) {
             glowPaint.setColor((this.decor.background.edgeColor & 0x00FFFFFF) | 0x99000000);
             loadColor = this.decor.background.centerColor | 0xFF000000;
@@ -88,7 +100,16 @@ public class WalletCardView extends View {
             glowPaint.setColor(0x990060E6);
             loadColor = 0xFF0088FF;
         }
-        if (!loading) {rebuild();}
+        if (!same && !loading) {rebuild();}
+    }
+
+    private static boolean sameDecor(CardDecor a, CardDecor b) {
+        if (a == b) {return true;}
+        if (a == null || b == null) {return false;}
+        if (a.isEmpty() && b.isEmpty()) {return true;}
+        if (a.telegramWallet != b.telegramWallet || a.gifts.size() != b.gifts.size()) {return false;}
+        if (a.background == null || b.background == null) {return a.background == b.background;}
+        return a.background.centerColor == b.background.centerColor && a.background.edgeColor == b.background.edgeColor;
     }
 
     public void setLoading(boolean loading) {
@@ -109,6 +130,7 @@ public class WalletCardView extends View {
 
     public void setOnQrClickListener(OnQrClickListener listener) {qrListener = listener;}
     public void setOnMassClickListener(OnMassClickListener listener) {massListener = listener;}
+    public void setOnCardTapListener(OnCardTapListener listener) {cardTapListener = listener;}
 
     private void startLoadAnim() {
         if (loadAnim != null && loadAnim.isRunning()) {return;}
@@ -134,15 +156,13 @@ public class WalletCardView extends View {
 
     private void rebuild() {
         int width = getWidth();
-        if (width <= 0) {
-            bitmap = null;
-            return;
-        }
+        if (width <= 0) {return;}
+        Bitmap next = CardArt.render(getContext(), width, balance, usd, address, decor);
         Bitmap old = bitmap;
-        bitmap = CardArt.render(getContext(), width, balance, usd, address, decor);
-        if (old != null) {old.recycle();}
+        bitmap = next;
         updateQrRect(width, Math.round(width * CardArt.CARD_HEIGHT_RATIO));
         invalidate();
+        if (old != null && old != next) {post(() -> {if (!old.isRecycled()) {old.recycle();}});}
     }
 
     private void updateQrRect(int width, int height) {
@@ -238,13 +258,14 @@ public class WalletCardView extends View {
         float x = event.getX();
         float y = event.getY();
         int action = event.getAction();
-        if (action == MotionEvent.ACTION_DOWN && (qrRect.contains(x, y) || massRect.contains(x, y))) {return true;}
+        if (action == MotionEvent.ACTION_DOWN) {return true;}
         if (action == MotionEvent.ACTION_UP) {
             if (qrRect.contains(x, y)) {performClick(); return true;}
             if (massRect.contains(x, y)) {
                 if (massListener != null) {massListener.onMassClick();}
                 return true;
             }
+            if (cardTapListener != null) {cardTapListener.onCardTap(); return true;}
         }
         return super.onTouchEvent(event);
     }

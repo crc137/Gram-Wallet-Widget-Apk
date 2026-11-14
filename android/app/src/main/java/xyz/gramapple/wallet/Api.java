@@ -52,7 +52,26 @@ final class Api {
     private static final String GITHUB_TAG_RELEASE = "https://api.github.com/repos/crc137/Gram-Wallet-Widget-Bot/releases/tags/";
     private static final String DONOR_API = "https://gram-wallet-widget-bot.direct-ban-guard.workers.dev/donor";
     private static final Pattern RELEASE_CODE = Pattern.compile("(?:\\(b|\\.b)(\\d+)\\)?", Pattern.CASE_INSENSITIVE);
+    private static final Pattern VERSION_RANK = Pattern.compile("(\\d+)\\.(\\d+)\\.(\\d+)");
     private Api() {}    static String walletUrl(String address) {return "https://gram.org/address/" + android.net.Uri.encode(address);}
+
+    static long versionRank(String value) {
+        if (value == null || value.isEmpty()) {return 0L;}
+        Matcher matcher = VERSION_RANK.matcher(value);
+        if (!matcher.find()) {return 0L;}
+        try {
+            return Long.parseLong(matcher.group(1)) * 1_000_000L
+                + Long.parseLong(matcher.group(2)) * 1_000L
+                + Long.parseLong(matcher.group(3));
+        } catch (NumberFormatException error) {return 0L;}
+    }
+
+    static long releaseRank(AppRelease release) {
+        if (release == null) {return 0L;}
+        long rank = versionRank(release.tag);
+        if (rank <= 0) {rank = versionRank(release.name);}
+        return rank;
+    }
 
     static final class AppRelease {
         final String tag;
@@ -203,6 +222,20 @@ final class Api {
         return value.isEmpty() || "null".equals(value) ? null : value;
     }
 
+    static double[] fetchBalanceHistory(String address, int days) throws ApiException {
+        int d = days <= 7 ? 7 : days <= 30 ? 30 : 90;
+        JSONObject json = getJson(GRAM_CARD + encode(address) + "/balance?days=" + d, TIMEOUT_MS);
+        JSONArray points = json.optJSONArray("points");
+        if (points == null || points.length() == 0) {return new double[0];}
+        double[] out = new double[points.length()];
+        for (int i = 0; i < points.length(); i++) {
+            JSONArray row = points.optJSONArray(i);
+            String nano = row == null ? null : row.optString(1, null);
+            out[i] = nano == null || nano.isEmpty() ? 0d : nanoToGram(nano);
+        }
+        return out;
+    }
+
     static ActionsPage fetchActions(String address, String cursor) throws ApiException {
         String url = GRAM_CARD + encode(address) + "/actions";
         if (cursor != null && !cursor.isEmpty()) {url = url + "?cursor=" + encode(cursor);}
@@ -253,12 +286,13 @@ final class Api {
 
     private static Nft parseNftItem(JSONObject item) {
         if (item == null) {return null;}
+        String address = item.optString("address", "").trim();
         String name = item.optString("name", "").trim();
         JSONObject collection = item.optJSONObject("collection");
         String collectionName = collection == null ? "" : collection.optString("name", "").trim();
         String image = nftImage(item);
-        if (name.isEmpty() && image.isEmpty()) {return null;}
-        return new Nft(name, collectionName, image, item.optBoolean("scam", false));
+        if (name.isEmpty() && image.isEmpty() && address.isEmpty()) {return null;}
+        return new Nft(address, name, collectionName, image, item.optBoolean("scam", false));
     }
 
     static final class NftsPage {

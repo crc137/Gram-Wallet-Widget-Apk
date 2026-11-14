@@ -14,8 +14,6 @@ package xyz.gramapple.wallet;
 import android.app.Activity;
 import android.app.Dialog;
 import android.appwidget.AppWidgetManager;
-import android.content.ClipData;
-import android.content.ClipboardManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -41,10 +39,8 @@ import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
-import android.text.Editable;
 import android.text.SpannableStringBuilder;
 import android.text.Spanned;
-import android.text.TextWatcher;
 import android.text.style.ImageSpan;
 import android.util.TypedValue;
 import android.view.Gravity;
@@ -55,40 +51,45 @@ import android.view.Window;
 import android.view.WindowInsets;
 import android.view.WindowManager;
 import android.view.animation.PathInterpolator;
-import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
-import android.widget.Button;
-import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
+import android.view.inputmethod.EditorInfo;
+import android.widget.EditText;
+import android.widget.Button;
 import android.widget.LinearLayout;
-import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
 import java.text.SimpleDateFormat;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.Locale;
 
 public class MainActivity extends Activity {
-    private static final int REQUEST_TON_CONNECT = 101;
     private WalletCardView cardView;
     private TextView updatedView;
     private TextView statusView;
-    private EditText addressInput;
-    private Button addressAction;
-    private View ownPanel;
-    private View otherPanel;
-    private TextView ownStatus;
-    private TextView ownAddress;
-    private Button ownAction;
-    private Button modeOwn;
-    private Button modeOther;
-    private Switch notifySwitch;
     private View updateBanner;
     private TextView updateBannerTitle;
     private TextView updateBannerSize;
     private ImageView headerDonor;
+    private LinearLayout todayList;
+    private TextView todayEmpty;
+    private BalanceChartView balanceChart;
+    private CardStackView cardStack;
+    private TextView chart7;
+    private TextView chart30;
+    private TextView chart90;
+    private SlidePager slidePager;
+    private MorphTabBar tabBar;
+    private TabPages tabPages;
+    private int chartDays = 7;
     private String currentAddress;
+    private int todaySeq;
+    private int chartSeq;
+    private final java.util.HashMap<String, java.util.List<Tx>> todayMem = new java.util.HashMap<>();
+    private final java.util.HashMap<String, double[]> chartMem = new java.util.HashMap<>();
+    private boolean skipNextResumeSync = true;
     private String pendingApkUrl;
     private Api.AppRelease pendingRelease;
     private int versionTaps;
@@ -118,238 +119,314 @@ public class MainActivity extends Activity {
         super.onCreate(savedInstanceState);
         setupEdgeToEdge();
         setContentView(R.layout.activity_main);
-        applySystemBarInsets(findViewById(R.id.root_scroll));
+        applySystemBarInsets(findViewById(R.id.main_content));
         applyUpdateBannerInsets(findViewById(R.id.update_banner));
+        cardStack = findViewById(R.id.card_stack);
         cardView = findViewById(R.id.card);
+        if (cardStack != null) {
+            cardStack.setBinder(this::bindWalletCard);
+            cardStack.setListener(this::applyWalletSwitch);
+            wireFrontCard();
+        }
         updatedView = findViewById(R.id.updated);
         statusView = findViewById(R.id.status);
-        addressInput = findViewById(R.id.address_input);
-        addressAction = findViewById(R.id.save_address);
-        ownPanel = findViewById(R.id.own_panel);
-        otherPanel = findViewById(R.id.other_panel);
-        ownStatus = findViewById(R.id.own_status);
-        ownAddress = findViewById(R.id.own_address);
-        ownAction = findViewById(R.id.own_action);
-        modeOwn = findViewById(R.id.mode_own);
-        modeOther = findViewById(R.id.mode_other);
-        notifySwitch = findViewById(R.id.notify_switch);
+        todayList = findViewById(R.id.today_list);
+        todayEmpty = findViewById(R.id.today_empty);
+        balanceChart = findViewById(R.id.balance_chart);
+        chart7 = findViewById(R.id.chart_7);
+        chart30 = findViewById(R.id.chart_30);
+        chart90 = findViewById(R.id.chart_90);
+        chartDays = Store.getChartDays(this);
+        if (chart7 != null) {
+            chart7.setOnClickListener(v -> setChartDays(7));
+            chart30.setOnClickListener(v -> setChartDays(30));
+            chart90.setOnClickListener(v -> setChartDays(90));
+            refreshChartChips();
+        }
         headerDonor = findViewById(R.id.header_donor);
         View headerRow = findViewById(R.id.header_row);
         if (headerRow != null) {headerRow.setOnLongClickListener(v -> {showDonorClaim(); return true;});}
-        findViewById(R.id.header_logo).setOnLongClickListener(v -> {showDonorClaim(); return true;});
+        findViewById(R.id.header_title).setOnLongClickListener(v -> {showDonorClaim(); return true;});
+        findViewById(R.id.header_add).setOnClickListener(view -> pinWidget());
+        findViewById(R.id.header_settings).setOnClickListener(view -> startActivity(new Intent(this, SettingsActivity.class)));
+        findViewById(R.id.header_filter).setOnClickListener(view -> {if (tabPages != null) {tabPages.openHistoryFilter();}});
+        findViewById(R.id.today_all).setOnClickListener(view -> openHistory());
+        slidePager = findViewById(R.id.slide_pager);
+        tabBar = findViewById(R.id.tab_bar);
+        tabPages = new TabPages(this, findViewById(R.id.history_root), findViewById(R.id.tokens_root), findViewById(R.id.nfts_root));
+        tabBar.setListener(index -> {
+            if (index > 0 && Store.getAddress(this) == null) {
+                Toast.makeText(this, R.string.save_address_first, Toast.LENGTH_SHORT).show();
+                tabBar.setSelectedIndex(0, true);
+                applyHeader(0);
+                startActivity(new Intent(this, SettingsActivity.class));
+                return;
+            }
+            slidePager.setCurrentPage(index, true);
+            applyHeader(index);
+            if (index > 0) {tabPages.ensure(index);}
+        });
+        slidePager.setListener(new SlidePager.Listener() {
+            @Override public void onScrollProgress(float progress) {
+                tabBar.setScrollProgress(progress);
+                applyHeader(Math.round(progress));
+            }
+            @Override public void onPageSelected(int index) {
+                tabBar.setSelectedIndex(index, false);
+                applyHeader(index);
+                if (index > 0) {
+                    if (Store.getAddress(MainActivity.this) == null) {
+                        Toast.makeText(MainActivity.this, R.string.save_address_first, Toast.LENGTH_SHORT).show();
+                        slidePager.setCurrentPage(0, true);
+                        tabBar.setSelectedIndex(0, true);
+                        applyHeader(0);
+                        startActivity(new Intent(MainActivity.this, SettingsActivity.class));
+                        return;
+                    }
+                    tabPages.ensure(index);
+                }
+            }
+        });
+        applyHeader(0);
         applyDonorBadge(Store.isDonor(this));
-        addressInput.setTextColor(0xFF0088FF);
-        addressInput.setHintTextColor(0x800C83FF);
-        addressAction.setOnClickListener(view -> onAddressAction());
-        ownAction.setOnClickListener(view -> onOwnAction());
-        applyMode(Store.getMode(this));
-        modeOwn.setOnClickListener(view -> selectMode("own"));
-        modeOther.setOnClickListener(view -> selectMode("other"));
-        notifySwitch.setChecked(Store.isNotifyEnabled(this));
-        notifySwitch.setOnCheckedChangeListener((buttonView, isChecked) -> onNotificationsChanged(isChecked));
-        if (Store.isNotifyEnabled(this)) {Notifications.ensureChannel(this); Notifications.schedule(this);}
-        findViewById(R.id.history_open).setOnClickListener(view -> openHistory());
-        findViewById(R.id.tokens_open).setOnClickListener(view -> openTokens());
-        findViewById(R.id.nfts_open).setOnClickListener(view -> openNfts());
-        findViewById(R.id.refresh_now).setOnClickListener(view -> refreshNow());
-        findViewById(R.id.add_widget).setOnClickListener(view -> pinWidget());
+        if (Store.wantsAnyNotify(this)) {Notifications.ensureChannel(this); Notifications.schedule(this);}
         cardView.setOnQrClickListener(this::showReceiveQr);
         cardView.setOnMassClickListener(this::onMassTap);
-        addressInput.setOnEditorActionListener((view, actionId, event) -> {
-            if (actionId == EditorInfo.IME_ACTION_DONE) {
-                if (!isPasteMode()) {saveAddress();}
-                return true;
-            }
-            return false;
-        });
-        addressInput.addTextChangedListener(new TextWatcher() {
-            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
-            @Override public void afterTextChanged(Editable s) {updateAddressAction();}
-        });
+        cardView.setOnCardTapListener(() -> {if (cardStack != null) {cardStack.cycleNext();}});
         showVersion();
-        currentAddress = Store.getAddress(this);
-        if (currentAddress != null) {
-            addressInput.setText(currentAddress);
-            addressInput.setSelection(currentAddress.length());
-        }
-        updateAddressAction();
-        updateOwnPanel();
+        syncFromStore(false);
+        GramWidgetProvider.renderAll(getApplicationContext());
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (skipNextResumeSync) {skipNextResumeSync = false; return;}
+        syncFromStore(false);
+        if (tabPages != null) {tabPages.reloadIfAddressChanged();}
+    }
+
+    private void syncFromStore(boolean forceRefresh) {
+        String address = Store.getAddress(this);
+        boolean changed = address == null ? currentAddress != null : !address.equals(currentAddress);
+        currentAddress = address;
         showCardAddress(currentAddress);
+        applyDonorBadge(Store.isDonor(this));
         WalletData cached = Store.load(this);
         if (cached != null) {
             bind(cached);
+            statusView.setVisibility(View.GONE);
+            cardView.setLoading(false);
             String error = Store.getError(this);
             if (error != null) {showFailure(error, "");}
         } else if (currentAddress == null) {
             statusView.setText(R.string.enter_address);
             statusView.setVisibility(View.VISIBLE);
+            cardView.setValues("—", "—");
+            cardView.setDecor(CardDecor.EMPTY);
+            cardView.setLoading(false);
+            updatedView.setVisibility(View.INVISIBLE);
         } else {
             statusView.setText(R.string.loading);
             statusView.setVisibility(View.VISIBLE);
         }
         CardDecor cachedCard = Store.loadCard(this);
-        if (cachedCard != null && !cachedCard.isEmpty()) {cardView.setDecor(cachedCard);}
-        if (currentAddress != null) {refresh(currentAddress);}
-        GramWidgetProvider.renderAll(getApplicationContext());
-    }
-
-    private boolean isOwnMode() {return "own".equals(Store.getMode(this));}
-    private boolean isPasteMode() {return addressInput.getText().toString().trim().isEmpty();}
-    private void updateAddressAction() {addressAction.setText(isPasteMode() ? R.string.paste_address : R.string.save_address);}
-    private void onAddressAction() {if (isPasteMode()) {pasteAddress();} else {saveAddress();}}
-
-    private void onOwnAction() {
-        if (currentAddress == null) {openTonConnect(); return;}
-        disconnectWallet();
-    }
-
-    private void selectMode(String mode) {
-        Store.setMode(this, mode);
-        applyMode(mode);
-        updateAddressAction();
-        updateOwnPanel();
-        if ("own".equals(mode) && currentAddress == null) {openTonConnect();}
-    }
-
-    private void openTonConnect() {
-        startActivityForResult(new Intent(this, TonConnectActivity.class), REQUEST_TON_CONNECT);
-    }
-
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode != REQUEST_TON_CONNECT || resultCode != RESULT_OK || data == null) {return;}
-        String address = TonAddress.normalize(data.getStringExtra(TonConnectActivity.EXTRA_ADDRESS));
-        if (address == null) {return;}
-        Store.setMode(this, "own");
-        applyMode("own");
-        connectAddress(address);
-    }
-
-    private void applyMode(String mode) {
-        boolean other = "other".equals(mode);
-        modeOwn.setBackgroundResource(other ? R.drawable.button_mode_off : R.drawable.button_mode_on);
-        modeOther.setBackgroundResource(other ? R.drawable.button_mode_on : R.drawable.button_mode_off);
-        modeOwn.setTextColor(other ? 0xFFFFFFFF : getColor(R.color.gram_blue));
-        modeOther.setTextColor(other ? getColor(R.color.gram_blue) : 0xFFFFFFFF);
-        ownPanel.setVisibility(other ? View.GONE : View.VISIBLE);
-        otherPanel.setVisibility(other ? View.VISIBLE : View.GONE);
-        if (!other) {hideKeyboard();}
-        updateOwnPanel();
-    }
-
-    private void updateOwnPanel() {
-        if (currentAddress == null) {
-            ownStatus.setText(R.string.own_connect_hint);
-            ownAddress.setText("");
-            ownAddress.setVisibility(View.GONE);
-            ownAction.setText(R.string.connect_wallet);
-            return;
+        if (cachedCard != null && !cachedCard.isEmpty()) {
+            cardView.setDecor(cachedCard);
+            maybePreloadGifts(currentAddress, cachedCard);
         }
-        ownStatus.setText(R.string.own_connected);
-        ownAddress.setText(halfAddress(currentAddress));
-        ownAddress.setVisibility(View.VISIBLE);
-        ownAction.setText(R.string.disconnect_wallet);
+        boolean fresh = currentAddress != null && Store.isFresh(this, currentAddress);
+        if (currentAddress != null && cached == null) {refresh(currentAddress);}
+        else if (currentAddress != null && !fresh) {refreshQuiet(currentAddress);}
+        if (cardStack != null) {cardStack.setWallets(Store.getWallets(this), currentAddress);}
+        warmWalletCaches();
+        loadToday(!changed && fresh);
+        loadChart(!changed && fresh);
     }
 
-    private static String halfAddress(String address) {
-        if (address == null || address.isEmpty()) {return "";}
-        if (address.length() <= 20) {return address;}
-        int half = Math.max(10, address.length() / 2);
-        return address.substring(0, half) + "…";
+    private void wireFrontCard() {
+        if (cardStack != null) {cardView = cardStack.getFrontCard();}
+        if (cardView == null) {return;}
+        cardView.setOnQrClickListener(this::showReceiveQr);
+        cardView.setOnMassClickListener(this::onMassTap);
+        cardView.setOnCardTapListener(() -> {if (cardStack != null) {cardStack.cycleNext();}});
     }
 
-    private void disconnectWallet() {
-        Store.clearAddress(this);
-        currentAddress = null;
-        addressInput.setText("");
-        updateAddressAction();
-        updateOwnPanel();
-        showCardAddress(null);
-        cardView.setValues("—", "—");
-        cardView.setDecor(CardDecor.EMPTY);
-        cardView.setLoading(false);
-        applyDonorBadge(false);
-        statusView.setText(R.string.enter_address);
-        statusView.setVisibility(View.VISIBLE);
-        updatedView.setVisibility(View.INVISIBLE);
-        GramWidgetProvider.renderAll(getApplicationContext());
-        Toast.makeText(this, R.string.disconnect_wallet, Toast.LENGTH_SHORT).show();
-    }
-
-    private void onNotificationsChanged(boolean enabled) {
-        if (enabled && Build.VERSION.SDK_INT >= 33 && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, 200);
-            return;
+    private void applyWalletSwitch(String address) {
+        Store.selectWallet(this, address);
+        currentAddress = address;
+        wireFrontCard();
+        applyDonorBadge(Store.isDonor(this));
+        WalletData cached = Store.load(this);
+        if (cached == null) {cached = Store.loadCache(this, address);}
+        if (cached != null) {
+            if (cached.updatedAt > 0) {
+                String time = new SimpleDateFormat("HH:mm", Locale.getDefault()).format(new Date(cached.updatedAt));
+                updatedView.setText(getString(R.string.updated, time));
+                updatedView.setVisibility(View.VISIBLE);
+            }
+            statusView.setVisibility(View.GONE);
         }
-        enableNotifications(enabled);
+        todayFp = "";
+        loadToday(true);
+        loadChart(true);
+        if (!Store.isFresh(this, address)) {refreshQuiet(address);}
     }
 
-    private void enableNotifications(boolean enabled) {
-        Store.setNotifyEnabled(this, enabled);
-        if (enabled) {
-            Notifications.ensureChannel(this);
-            Notifications.schedule(this);
-            Notifications.pollAsync(this);
-            if (currentAddress == null) {Toast.makeText(this, R.string.save_address_first, Toast.LENGTH_SHORT).show();}
-        } else {Notifications.cancel(this);}
+    private void bindWalletCard(WalletCardView view, String address) {
+        if (view == null || address == null) {return;}
+        WalletData data = Store.loadCache(this, address);
+        CardDecor decor = Store.loadCardCache(this, address);
+        if (data == null && (decor == null || decor.isEmpty())) {return;}
+        String bal = data != null ? Format.shortGram(data.gram) : null;
+        String usd = data != null ? (data.hasUsd ? Format.usd(data.totalUsd) : "—") : null;
+        view.apply(bal, usd, address, decor != null && !decor.isEmpty() ? decor : null);
+        view.setLoading(false);
+        if (decor != null && !decor.isEmpty()) {maybePreloadGifts(address, decor);}
     }
 
-    @Override
-    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode != 200) {return;}
-        boolean granted = grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED;
-        notifySwitch.setChecked(granted);
-        if (granted) {
-            enableNotifications(true);
+    private void maybePreloadGifts(String address, CardDecor decor) {
+        if (decor == null || decor.isEmpty()) {return;}
+        if (GiftImages.isReady(this, decor)) {return;}
+        final String addr = address;
+        GiftImages.preloadAsync(getApplicationContext(), decor, () -> {
+            if (isFinishing()) {return;}
+            if (addr != null && addr.equals(currentAddress) && cardView != null) {cardView.refreshArt();}
+            if (cardStack != null && addr != null) {cardStack.updateAddress(addr);}
+            GramWidgetProvider.renderAll(getApplicationContext());
+        });
+    }
+
+    private void warmWalletCaches() {
+        final Context app = getApplicationContext();
+        final java.util.List<Store.WalletEntry> list = Store.getWallets(this);
+        if (list.isEmpty()) {return;}
+        for (Store.WalletEntry e : list) {
+            if (Store.isFresh(app, e.address)) {continue;}
+            final String addr = e.address;
+            new Thread(() -> {
+                try {
+                    WalletData data = Api.fetch(addr);
+                    Store.save(app, addr, data);
+                } catch (Exception ignored) {}
+                CardDecor decor = CardDecor.EMPTY;
+                try {
+                    String raw = Api.fetchCardRaw(addr);
+                    if (raw != null) {
+                        Store.saveCard(app, addr, raw);
+                        decor = Store.loadCardCache(app, addr);
+                    }
+                } catch (Exception ignored) {}
+                final CardDecor cardDecor = decor;
+                runOnUiThread(() -> {
+                    if (isFinishing() || cardStack == null) {return;}
+                    cardStack.updateAddress(addr);
+                    if (addr.equals(currentAddress)) {
+                        WalletData active = Store.load(this);
+                        if (active != null) {bind(active);}
+                        if (cardDecor != null && !cardDecor.isEmpty() && cardView != null) {cardView.setDecor(cardDecor);}
+                    }
+                });
+            }, "gram-warm").start();
+        }
+    }
+
+    private void refreshQuiet(final String address) {
+        final Context appContext = getApplicationContext();
+        new Thread(() -> {
+            try {
+                WalletData data = Api.fetch(address);
+                Store.save(appContext, address, data);
+                String cardRaw = Api.fetchCardRaw(address);
+                if (cardRaw != null) {Store.saveCard(appContext, address, cardRaw);}
+                boolean donor = Api.isDonor(address);
+                Store.setDonor(appContext, address, donor);
+                final WalletData result = data;
+                final CardDecor decor = Store.loadCardCache(appContext, address);
+                final boolean donorFlag = donor;
+                runOnUiThread(() -> {
+                    if (isFinishing()) {return;}
+                    if (cardStack != null) {cardStack.updateAddress(address);}
+                    if (!address.equals(currentAddress)) {return;}
+                    bind(result);
+                    if (decor != null && !decor.isEmpty() && cardView != null) {cardView.setDecor(decor);}
+                    if (cardView != null) {cardView.setLoading(false);}
+                    applyDonorBadge(donorFlag);
+                    maybePreloadGifts(address, decor);
+                });
+                GramWidgetProvider.renderAll(appContext);
+            } catch (Exception ignored) {}
+        }, "gram-quiet").start();
+    }
+
+
+    private void applyHeader(int page) {
+        TextView title = findViewById(R.id.header_title);
+        View add = findViewById(R.id.header_add);
+        View settings = findViewById(R.id.header_settings);
+        View filter = findViewById(R.id.header_filter);
+        if (title == null) {return;}
+        if (page <= 0) {
+            title.setText(R.string.header_logo);
+            add.setVisibility(View.VISIBLE);
+            settings.setVisibility(View.VISIBLE);
+            filter.setVisibility(View.GONE);
+            applyDonorBadge(Store.isDonor(this));
+        } else if (page == 1) {
+            title.setText(R.string.history_title);
+            add.setVisibility(View.INVISIBLE);
+            settings.setVisibility(View.GONE);
+            filter.setVisibility(View.VISIBLE);
+            if (headerDonor != null) {headerDonor.setVisibility(View.GONE);}
+        } else if (page == 2) {
+            title.setText(R.string.tokens_title);
+            add.setVisibility(View.INVISIBLE);
+            settings.setVisibility(View.GONE);
+            filter.setVisibility(View.GONE);
+            if (headerDonor != null) {headerDonor.setVisibility(View.GONE);}
         } else {
-            Store.setNotifyEnabled(this, false);
-            Toast.makeText(this, R.string.notifications_denied, Toast.LENGTH_LONG).show();
+            title.setText(R.string.nfts_title);
+            add.setVisibility(View.INVISIBLE);
+            settings.setVisibility(View.GONE);
+            filter.setVisibility(View.GONE);
+            if (headerDonor != null) {headerDonor.setVisibility(View.GONE);}
         }
     }
 
     private void openHistory() {
         if (currentAddress == null) {
             Toast.makeText(this, R.string.save_address_first, Toast.LENGTH_SHORT).show();
+            startActivity(new Intent(this, SettingsActivity.class));
             return;
         }
-        startActivity(new Intent(this, HistoryActivity.class));
+        tabBar.setSelectedIndex(1, true);
+        slidePager.setCurrentPage(1, true);
+        applyHeader(1);
+        tabPages.ensure(1);
     }
 
     private void openTokens() {
         if (currentAddress == null) {
             Toast.makeText(this, R.string.save_address_first, Toast.LENGTH_SHORT).show();
+            startActivity(new Intent(this, SettingsActivity.class));
             return;
         }
-        startActivity(new Intent(this, TokensActivity.class));
+        tabBar.setSelectedIndex(2, true);
+        slidePager.setCurrentPage(2, true);
+        applyHeader(2);
+        tabPages.ensure(2);
     }
 
     private void openNfts() {
         if (currentAddress == null) {
             Toast.makeText(this, R.string.save_address_first, Toast.LENGTH_SHORT).show();
+            startActivity(new Intent(this, SettingsActivity.class));
             return;
         }
-        startActivity(new Intent(this, NftsActivity.class));
-    }
-
-    private void pasteAddress() {
-        ClipboardManager manager = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
-        ClipData clip = manager == null ? null : manager.getPrimaryClip();
-        if (clip == null || clip.getItemCount() == 0) {
-            Toast.makeText(this, R.string.clipboard_empty, Toast.LENGTH_SHORT).show();
-            return;
-        }
-        CharSequence text = clip.getItemAt(0).coerceToText(this);
-        String raw = text == null ? "" : text.toString().trim().replaceAll("\\s+", "");
-        if (raw.isEmpty()) {
-            Toast.makeText(this, R.string.clipboard_empty, Toast.LENGTH_SHORT).show();
-            return;
-        }
-        addressInput.setText(raw);
-        addressInput.setSelection(addressInput.getText().length());
-        updateAddressAction();
+        tabBar.setSelectedIndex(3, true);
+        slidePager.setCurrentPage(3, true);
+        applyHeader(3);
+        tabPages.ensure(3);
     }
 
     private void showVersion() {
@@ -366,13 +443,15 @@ public class MainActivity extends Activity {
         versionView.setClickable(true);
         versionView.setFocusable(true);
         versionView.setOnClickListener(view -> onVersionTap());
+        String versionName = "";
         long code = 0L;
         try {
             PackageInfo info = getPackageManager().getPackageInfo(getPackageName(), 0);
+            versionName = info.versionName == null ? "" : info.versionName;
             code = android.os.Build.VERSION.SDK_INT >= 28 ? info.getLongVersionCode() : info.versionCode;
-            versionView.setText(getString(R.string.version_label, info.versionName, code));
+            versionView.setText(getString(R.string.version_label, versionName, code));
         } catch (Exception ignored) {versionView.setText("");}
-        checkForUpdate(code);
+        checkForUpdate(versionName);
     }
 
     private void onVersionTap() {
@@ -684,11 +763,13 @@ public class MainActivity extends Activity {
         } catch (Exception error) {return null;}
     }
 
-    private void checkForUpdate(final long currentCode) {
+    private void checkForUpdate(final String currentVersion) {
+        final long mine = Api.versionRank(currentVersion);
         new Thread(() -> {
             try {
                 Api.AppRelease release = Api.fetchLatestRelease();
-                if (release == null || release.apkUrl.isEmpty() || release.code <= currentCode) {return;}
+                if (release == null || release.apkUrl.isEmpty()) {return;}
+                if (Api.releaseRank(release) <= mine) {return;}
                 runOnUiThread(() -> {
                     if (isFinishing()) {return;}
                     showUpdateAvailable(release);
@@ -980,72 +1061,9 @@ public class MainActivity extends Activity {
         super.onDestroy();
     }
 
-    private void saveAddress() {
-        String raw = addressInput.getText().toString().trim();
-        if (raw.replaceAll("\\s+", "").isEmpty()) {
-            Toast.makeText(this, R.string.address_empty, Toast.LENGTH_SHORT).show();
-            return;
-        }
-        String address = TonAddress.normalize(raw);
-        if (address == null) {
-            statusView.setText(R.string.address_invalid_hint);
-            statusView.setVisibility(View.VISIBLE);
-            Toast.makeText(this, R.string.address_invalid, Toast.LENGTH_LONG).show();
-            return;
-        }
-        addressInput.setText(address);
-        addressInput.setSelection(address.length());
-        hideKeyboard();
-        connectAddress(address);
-    }
-
-    private void connectAddress(String address) {
-        boolean changed = !address.equals(currentAddress);
-        currentAddress = address;
-        addressInput.setText(address);
-        addressInput.setSelection(address.length());
-        showCardAddress(address);
-        updateAddressAction();
-        updateOwnPanel();
-        if (changed) {
-            Store.setAddress(this, address);
-            applyDonorBadge(false);
-            if (Store.isNotifyEnabled(this)) {Notifications.schedule(this);}
-            cardView.setValues("—", "—");
-            cardView.setLoading(true);
-            statusView.setText(R.string.loading);
-            statusView.setVisibility(View.VISIBLE);
-            updatedView.setVisibility(View.INVISIBLE);
-            GramWidgetProvider.renderAll(getApplicationContext());
-        }
-        Toast.makeText(this, R.string.wallet_connected, Toast.LENGTH_SHORT).show();
-        refresh(address);
-    }
-
-    private void refreshNow() {
-        String address = currentAddress;
-        if (address == null) {
-            address = TonAddress.normalize(addressInput.getText().toString());
-            if (address == null) {
-                String raw = addressInput.getText().toString().trim();
-                boolean empty = raw.replaceAll("\\s+", "").isEmpty();
-                Toast.makeText(this,empty ? R.string.address_empty : R.string.address_invalid,Toast.LENGTH_SHORT).show();
-                addressInput.requestFocus();
-                return;
-            }
-            currentAddress = address;
-            Store.setAddress(this, address);
-            showCardAddress(address);
-        }
-        if (Store.load(this) == null) {
-            statusView.setText(R.string.loading);
-            statusView.setVisibility(View.VISIBLE);
-        } else {statusView.setVisibility(View.GONE);}
-        refresh(address);
-    }
-
     private void refresh(final String address) {
-        cardView.setLoading(true);
+        boolean showSpinner = Store.loadCache(this, address) == null;
+        if (showSpinner) {cardView.setLoading(true);}
         final Context appContext = getApplicationContext();
         new Thread(() -> {
             WalletData data;
@@ -1081,7 +1099,6 @@ public class MainActivity extends Activity {
                 if (cardRaw != null) {
                     Store.saveCard(appContext, address, cardRaw);
                     decor = Store.loadCard(appContext);
-                    GiftImages.preload(appContext, decor);
                 }
             } catch (Exception ignored) {}
             boolean donor = Api.isDonor(address);
@@ -1100,6 +1117,7 @@ public class MainActivity extends Activity {
                 }
             });
             GramWidgetProvider.renderAll(appContext);
+            runOnUiThread(() -> maybePreloadGifts(address, cardDecor));
         }, "gram-app-refresh").start();
     }
 
@@ -1281,7 +1299,7 @@ public class MainActivity extends Activity {
     private void pinWidget() {
         if (currentAddress == null) {
             Toast.makeText(this, R.string.save_address_first, Toast.LENGTH_LONG).show();
-            addressInput.requestFocus();
+            startActivity(new Intent(this, SettingsActivity.class));
             return;
         }
 
@@ -1295,10 +1313,195 @@ public class MainActivity extends Activity {
         Toast.makeText(this,requested ? R.string.pin_requested : R.string.pin_unsupported,Toast.LENGTH_LONG).show();
     }
 
-    private void hideKeyboard() {
-        InputMethodManager manager =(InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
-        if (manager != null) {manager.hideSoftInputFromWindow(addressInput.getWindowToken(), 0);}
-        addressInput.clearFocus();
+
+
+    private void setChartDays(int days) {
+        chartDays = days;
+        Store.setChartDays(this, days);
+        refreshChartChips();
+        loadChart(false);
+    }
+
+    private void refreshChartChips() {
+        if (chart7 == null) {return;}
+        chart7.setTextColor(chartDays == 7 ? 0xFFFFFFFF : 0x99FFFFFF);
+        chart30.setTextColor(chartDays == 30 ? 0xFFFFFFFF : 0x99FFFFFF);
+        chart90.setTextColor(chartDays == 90 ? 0xFFFFFFFF : 0x99FFFFFF);
+        chart7.setTypeface(null, chartDays == 7 ? android.graphics.Typeface.BOLD : android.graphics.Typeface.NORMAL);
+        chart30.setTypeface(null, chartDays == 30 ? android.graphics.Typeface.BOLD : android.graphics.Typeface.NORMAL);
+        chart90.setTypeface(null, chartDays == 90 ? android.graphics.Typeface.BOLD : android.graphics.Typeface.NORMAL);
+    }
+
+    private void loadChart(boolean memOnly) {
+        if (balanceChart == null) {return;}
+        if (currentAddress == null) {balanceChart.setValues(new double[0]); return;}
+        final String address = currentAddress;
+        final int days = chartDays;
+        String key = address + ":" + days;
+        double[] mem = chartMem.get(key);
+        if (mem != null) {balanceChart.setValues(mem); if (memOnly || Store.isFresh(this, address)) {return;}}
+        final int seq = ++chartSeq;
+        new Thread(() -> {
+            double[] values = new double[0];
+            try {values = Api.fetchBalanceHistory(address, days);} catch (Exception ignored) {}
+            final double[] out = values;
+            runOnUiThread(() -> {
+                if (isFinishing() || balanceChart == null || seq != chartSeq) {return;}
+                if (!address.equals(currentAddress)) {return;}
+                chartMem.put(key, out);
+                balanceChart.setValues(out);
+            });
+        }, "gram-chart").start();
+    }
+
+    private void loadToday(boolean memOnly) {
+        if (currentAddress == null) {
+            todayList.removeAllViews();
+            todayEmpty.setVisibility(View.VISIBLE);
+            todayEmpty.setText(R.string.enter_address);
+            return;
+        }
+        final String address = currentAddress;
+        java.util.List<Tx> mem = todayMem.get(address);
+        if (mem != null) {
+            bindTodayRows(mem);
+            if (memOnly || Store.isFresh(this, address)) {return;}
+        }
+        final int seq = ++todaySeq;
+        final boolean hideSpam = Store.isHideSpam(this);
+        new Thread(() -> {
+            java.util.List<Tx> today = new java.util.ArrayList<>();
+            try {
+                Calendar cal = Calendar.getInstance();
+                cal.set(Calendar.HOUR_OF_DAY, 0);
+                cal.set(Calendar.MINUTE, 0);
+                cal.set(Calendar.SECOND, 0);
+                cal.set(Calendar.MILLISECOND, 0);
+                long minTime = cal.getTimeInMillis() / 1000L;
+                String cursor = null;
+                for (int page = 0; page < 4 && today.size() < 4; page++) {
+                    Api.ActionsPage result = Api.fetchActions(address, cursor);
+                    if (result == null || result.items == null || result.items.isEmpty()) {break;}
+                    boolean older = false;
+                    for (Tx tx : result.items) {
+                        if (tx.time < minTime) {older = true; break;}
+                        if (hideSpam && tx.isSpam()) {continue;}
+                        today.add(tx);
+                        if (today.size() >= 4) {break;}
+                    }
+                    if (older || result.next == null || result.next.isEmpty()) {break;}
+                    cursor = result.next;
+                }
+            } catch (Exception ignored) {}
+            final java.util.List<Tx> rows = today;
+            runOnUiThread(() -> {
+                if (isFinishing() || seq != todaySeq || !address.equals(currentAddress)) {return;}
+                todayMem.put(address, rows);
+                bindTodayRows(rows);
+            });
+        }, "gram-today").start();
+    }
+
+    private String todayFp = "";
+
+    private void bindTodayRows(java.util.List<Tx> rows) {
+        String fp = todayFingerprint(rows);
+        if (fp.equals(todayFp) && todayList.getChildCount() == (rows == null ? 0 : rows.size())) {return;}
+        todayFp = fp;
+        if (rows == null || rows.isEmpty()) {
+            todayList.removeAllViews();
+            todayEmpty.setVisibility(View.VISIBLE);
+            todayEmpty.setText(R.string.today_empty);
+            return;
+        }
+        todayEmpty.setVisibility(View.GONE);
+        float density = getResources().getDisplayMetrics().density;
+        int gap = Math.round(8 * density);
+        android.widget.LinearLayout next = new android.widget.LinearLayout(this);
+        next.setOrientation(android.widget.LinearLayout.VERTICAL);
+        next.setLayoutParams(new android.widget.LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        for (int i = 0; i < rows.size(); i++) {
+            Tx tx = rows.get(i);
+            View row = getLayoutInflater().inflate(R.layout.row_tx, next, false);
+            bindTodayRow(row, tx);
+            if (i > 0) {
+                LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+                lp.topMargin = gap;
+                row.setLayoutParams(lp);
+            }
+            row.setOnClickListener(v -> TxDetail.show(this, tx));
+            next.addView(row);
+        }
+        todayList.removeAllViews();
+        for (int i = 0; i < next.getChildCount(); ) {
+            View child = next.getChildAt(0);
+            next.removeViewAt(0);
+            todayList.addView(child);
+        }
+    }
+
+    private static String todayFingerprint(java.util.List<Tx> rows) {
+        if (rows == null || rows.isEmpty()) {return "";}
+        StringBuilder sb = new StringBuilder(rows.size() * 24);
+        for (Tx tx : rows) {sb.append(tx.id).append('|').append(tx.time).append(';');}
+        return sb.toString();
+    }
+
+    private void bindTodayRow(View view, Tx tx) {
+        TextView badge = view.findViewById(R.id.tx_badge);
+        ImageView arrow = view.findViewById(R.id.tx_arrow);
+        ImageView image = view.findViewById(R.id.tx_image);
+        TextView title = view.findViewById(R.id.tx_title);
+        TextView subtitle = view.findViewById(R.id.tx_subtitle);
+        TextView comment = view.findViewById(R.id.tx_comment);
+        TextView time = view.findViewById(R.id.tx_time);
+        TextView amount = view.findViewById(R.id.tx_amount);
+        comment.setVisibility(View.GONE);
+        SimpleDateFormat dateFormat = new SimpleDateFormat("HH:mm", Locale.getDefault());
+        if (tx.isNft()) {
+            arrow.setVisibility(View.GONE);
+            if (tx.image.isEmpty()) {
+                badge.setText("NFT");
+                badge.setVisibility(View.VISIBLE);
+                image.setVisibility(View.GONE);
+            } else {
+                badge.setVisibility(View.GONE);
+                image.setVisibility(View.VISIBLE);
+                ImageLoader.load(this, image, tx.image);
+            }
+            title.setText(tx.nftName.isEmpty() ? getString(R.string.tx_nft) : tx.nftName);
+            subtitle.setText(tx.collection.isEmpty() ? getString(tx.incoming ? R.string.tx_nft_received : R.string.tx_nft_sent) : tx.collection);
+            amount.setText(tx.incoming ? "+ NFT" : "− NFT");
+        } else if (Tx.TYPE_TON.equals(tx.type)) {
+            badge.setVisibility(View.GONE);
+            image.setVisibility(View.GONE);
+            arrow.setVisibility(View.VISIBLE);
+            arrow.setImageResource(tx.incoming ? R.drawable.ic_tx_in : R.drawable.ic_tx_out);
+            title.setText(getString(tx.incoming ? R.string.tx_received : R.string.tx_sent));
+            subtitle.setText(shortTodayAddress(tx.counterparty));
+            String sign = tx.incoming ? "+ " : "− ";
+            amount.setText(sign + Format.shortGram(tx.gram) + " GRAM");
+        } else {
+            badge.setText("···");
+            badge.setVisibility(View.VISIBLE);
+            image.setVisibility(View.GONE);
+            arrow.setVisibility(View.GONE);
+            title.setText(getString(R.string.tx_contract));
+            subtitle.setText(shortTodayAddress(tx.counterparty));
+            if (tx.gram > 0) {
+                String sign = tx.incoming ? "+ " : "− ";
+                amount.setText(sign + Format.shortGram(tx.gram) + " GRAM");
+            } else {amount.setText("—");}
+        }
+        amount.setTextColor(0xFFFFFFFF);
+        time.setText(dateFormat.format(new Date(tx.time * 1000L)));
+        if (!tx.success) {title.setText(getString(R.string.tx_failed));}
+    }
+
+    private String shortTodayAddress(String value) {
+        if (value == null || value.isEmpty()) {return getString(R.string.tx_unknown);}
+        if (value.indexOf('.') >= 0 || value.length() <= 16) {return value;}
+        return value.substring(0, 6) + "…" + value.substring(value.length() - 4);
     }
 
     private void setupEdgeToEdge() {
@@ -1313,7 +1516,9 @@ public class MainActivity extends Activity {
         final int baseLeft = root.getPaddingLeft();
         final int baseTop = root.getPaddingTop();
         final int baseRight = root.getPaddingRight();
-        final int baseBottom = root.getPaddingBottom();
+        final View tab = findViewById(R.id.tab_bar);
+        final ViewGroup.MarginLayoutParams tabLp = tab == null ? null : (ViewGroup.MarginLayoutParams) tab.getLayoutParams();
+        final int tabBaseBottom = tabLp == null ? 0 : tabLp.bottomMargin;
         root.setOnApplyWindowInsetsListener((view, insets) -> {
             int left;
             int top;
@@ -1331,7 +1536,11 @@ public class MainActivity extends Activity {
                 right = insets.getSystemWindowInsetRight();
                 bottom = insets.getSystemWindowInsetBottom();
             }
-            view.setPadding(baseLeft + left, baseTop + top, baseRight + right, baseBottom + bottom);
+            view.setPadding(baseLeft + left, baseTop + top, baseRight + right, 0);
+            if (tabLp != null) {
+                tabLp.bottomMargin = tabBaseBottom + bottom;
+                tab.setLayoutParams(tabLp);
+            }
             return insets;
         });
         root.requestApplyInsets();

@@ -20,6 +20,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.SystemClock;
 import android.widget.RemoteViews;
+import java.util.LinkedHashSet;
 
 public class GramWidgetProvider extends AppWidgetProvider {
     static final String ACTION_REFRESH = "xyz.gramapple.wallet.action.REFRESH";
@@ -47,6 +48,12 @@ public class GramWidgetProvider extends AppWidgetProvider {
         if (manager != null) {manager.cancel(refreshIntent(context));}
     }
 
+    @Override
+    public void onDeleted(Context context, int[] appWidgetIds) {
+        if (appWidgetIds == null) {return;}
+        for (int id : appWidgetIds) {Store.clearWidgetAddress(context, id);}
+    }
+
     static void schedule(Context context) {
         AlarmManager manager = context.getSystemService(AlarmManager.class);
         if (manager == null) {return;}
@@ -61,9 +68,12 @@ public class GramWidgetProvider extends AppWidgetProvider {
 
     static void refreshAsync(Context context, final PendingResult pendingResult) {
         final Context appContext = context.getApplicationContext();
-        final String address = Store.getAddress(appContext);
+        AppWidgetManager manager = AppWidgetManager.getInstance(appContext);
+        ComponentName provider = new ComponentName(appContext, GramWidgetProvider.class);
+        final int[] ids = manager.getAppWidgetIds(provider);
+        final LinkedHashSet<String> addresses = Store.getWidgetAddresses(appContext, ids);
         Thread thread = new Thread(() -> {
-            if (address != null) {
+            for (String address : addresses) {
                 try {Store.save(appContext, address, Api.fetch(address));}
                 catch (Api.ApiException error) {Store.setError(appContext, address, error.kind);}
                 catch (Exception error) {Store.setError(appContext, address, Api.ERROR_NETWORK);}
@@ -71,7 +81,8 @@ public class GramWidgetProvider extends AppWidgetProvider {
                     String cardRaw = Api.fetchCardRaw(address);
                     if (cardRaw != null) {
                         Store.saveCard(appContext, address, cardRaw);
-                        GiftImages.preload(appContext, Store.loadCard(appContext));
+                        CardDecor decor = Store.loadCardCache(appContext, address);
+                        if (decor != null && !decor.isEmpty() && !GiftImages.isReady(appContext, decor)) {GiftImages.preload(appContext, decor);}
                     }
                 } catch (Exception ignored) {}
             }
@@ -86,29 +97,46 @@ public class GramWidgetProvider extends AppWidgetProvider {
         render(context, manager, manager.getAppWidgetIds(provider));
     }
 
-    private static void render(Context context, AppWidgetManager manager, int[] ids) {
-        if (ids == null || ids.length == 0) {return;}
-        String address = Store.getAddress(context);
-        WalletData data = Store.load(context);
-        RemoteViews views = build(context, address, data);
-        for (int id : ids) {manager.updateAppWidget(id, views);}
+    static void renderOne(Context context, int appWidgetId) {
+        if (appWidgetId <= 0) {return;}
+        AppWidgetManager manager = AppWidgetManager.getInstance(context);
+        render(context, manager, new int[]{appWidgetId});
     }
 
-    private static RemoteViews build(Context context, String address, WalletData data) {
+    private static void render(Context context, AppWidgetManager manager, int[] ids) {
+        if (ids == null || ids.length == 0) {return;}
+        for (int id : ids) {
+            String address = Store.getWidgetAddress(context, id);
+            if (address != null && !Store.isWalletKnown(context, address)) {
+                Store.clearWidgetBindingsForAddress(context, address);
+                address = null;
+            }
+            WalletData data = address == null ? null : Store.loadCache(context, address);
+            CardDecor card = address == null ? CardDecor.EMPTY : Store.loadCardCache(context, address);
+            manager.updateAppWidget(id, build(context, id, address, data, card));
+        }
+    }
+
+    private static RemoteViews build(Context context, int appWidgetId, String address, WalletData data, CardDecor card) {
         RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.widget_gram);
         String balance = "—";
         String usd = "—";
-        if (data != null) {
+        if (address == null) {
+            balance = context.getString(R.string.widget_set_address);
+            usd = "";
+        } else if (data != null) {
             balance = Format.shortGram(data.gram);
             if (data.hasUsd) {usd = Format.usd(data.totalUsd);}
         }
 
         int width = Math.min(972, context.getResources().getDisplayMetrics().widthPixels);
         width = Math.max(320, width);
-        views.setImageViewBitmap(R.id.widget_image,CardArt.render(context, width, balance, usd, address, Store.loadCard(context)));
+        views.setImageViewBitmap(R.id.widget_image,CardArt.render(context, width, balance, usd, address, card == null ? CardDecor.EMPTY : card));
         views.setContentDescription(R.id.widget_image,context.getString(R.string.widget_description));
-        Intent open = new Intent(context,address != null && !address.isEmpty() ? ReceiveActivity.class : MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-        PendingIntent pendingIntent = PendingIntent.getActivity(context, 0, open, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+
+        Intent open;
+        if (address == null || address.isEmpty()) {open = new Intent(context, WidgetConfigureActivity.class).putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);} else {open = new Intent(context, ReceiveActivity.class).putExtra(ReceiveActivity.EXTRA_ADDRESS, address).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);}
+        PendingIntent pendingIntent = PendingIntent.getActivity(context, appWidgetId, open, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         views.setOnClickPendingIntent(R.id.widget_root, pendingIntent);
         return views;
     }

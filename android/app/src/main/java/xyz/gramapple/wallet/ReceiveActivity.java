@@ -25,10 +25,13 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 public class ReceiveActivity extends Activity {
+    static final String EXTRA_ADDRESS = "address";
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        String address = Store.getAddress(this);
+        String address = getIntent() == null ? null : getIntent().getStringExtra(EXTRA_ADDRESS);
+        if (address == null || address.trim().isEmpty()) {address = Store.getAddress(this);}
         if (address == null || address.isEmpty()) {
             startActivity(new android.content.Intent(this, MainActivity.class));
             finish();
@@ -48,7 +51,7 @@ public class ReceiveActivity extends Activity {
         addressView.setTextColor(0xFF111111);
         addressView.setText(Format.chunkAddressStyled(address), TextView.BufferType.SPANNABLE);
         View donorBadge = root.findViewById(R.id.receive_donor);
-        if (donorBadge != null) {donorBadge.setVisibility(Store.isDonor(context) ? View.VISIBLE : View.GONE);}
+        if (donorBadge != null) {donorBadge.setVisibility(Store.isDonorFor(context, address) ? View.VISIBLE : View.GONE);}
         View.OnClickListener copy = v -> {
             ClipboardManager clipboard = (ClipboardManager) context.getSystemService(Context.CLIPBOARD_SERVICE);
             if (clipboard != null) {clipboard.setPrimaryClip(ClipData.newPlainText("address", address));}
