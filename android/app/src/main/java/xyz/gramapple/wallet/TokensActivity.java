@@ -96,7 +96,7 @@ public class TokensActivity extends Activity {
                     if (!append) {adapter.clear();}
                     adapter.addAll(page.items);
                     nextCursor = page.next;
-                    moreButton.setVisibility(nextCursor == null ? View.GONE : View.VISIBLE);
+                    moreButton.setVisibility(nextCursor != null && adapter.getCount() > 0 ? View.VISIBLE : View.GONE);
                     if (adapter.getCount() == 0) {
                         statusView.setText(R.string.tokens_empty);
                         statusView.setVisibility(View.VISIBLE);
@@ -110,9 +110,10 @@ public class TokensActivity extends Activity {
                     if (adapter.getCount() == 0) {
                         statusView.setText(R.string.tokens_error);
                         statusView.setVisibility(View.VISIBLE);
+                        moreButton.setVisibility(View.GONE);
                     } else {
                         Toast.makeText(appContext, R.string.tokens_error, Toast.LENGTH_SHORT).show();
-                        moreButton.setVisibility(nextCursor == null ? View.GONE : View.VISIBLE);
+                        moreButton.setVisibility(nextCursor != null && adapter.getCount() > 0 ? View.VISIBLE : View.GONE);
                     }
                 });
             }

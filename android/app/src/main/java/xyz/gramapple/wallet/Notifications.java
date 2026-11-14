@@ -23,63 +23,68 @@ import android.content.Intent;
 import android.content.pm.PackageInfo;
 import android.media.AudioAttributes;
 import android.net.Uri;
-import android.os.Build;
+import android.os.SystemClock;
 import java.util.ArrayList;
 import java.util.List;
 
 final class Notifications {
     static final String CHANNEL_ID = "transactions";
-    static final String CHANNEL_IN = "transactions_received";
-    static final String CHANNEL_OUT = "transactions_lost";
-    static final String CHANNEL_GIFTS = "gifts_nft";
-    static final String CHANNEL_UPDATES = "app_new_version";
+    static final String CHANNEL_IN = "tx_in_v2";
+    static final String CHANNEL_OUT = "tx_out_v2";
+    static final String CHANNEL_GIFTS = "gifts_nft_v2";
+    static final String CHANNEL_UPDATES = "app_new_version_v2";
     static final String ACTION_POLL = "xyz.gramapple.wallet.action.POLL";
     private static final int ID_PAYMENTS = 1001;
     private static final int ID_GIFTS = 1002;
     private static final int ID_UPDATES = 1003;
-    private static final long INTERVAL = AlarmManager.INTERVAL_FIFTEEN_MINUTES;
+    private static final long INTERVAL = 3L * 60L * 1000L;
     private Notifications() {}
 
     static void ensureChannel(Context context) {
         NotificationManager manager = context.getSystemService(NotificationManager.class);
         if (manager == null) {return;}
-        createSoundChannel(context, manager, CHANNEL_IN, context.getString(R.string.notif_channel_in), context.getString(R.string.notif_channel_in_desc), R.raw.received);
-        createSoundChannel(context, manager, CHANNEL_OUT, context.getString(R.string.notif_channel_out), context.getString(R.string.notif_channel_out_desc), R.raw.lost);
-        createSoundChannel(context, manager, CHANNEL_GIFTS, context.getString(R.string.notif_channel_gifts), context.getString(R.string.notif_channel_gifts_desc), R.raw.nft);
-        createSoundChannel(context, manager, CHANNEL_UPDATES, context.getString(R.string.notif_channel_updates), context.getString(R.string.notif_channel_updates_desc), R.raw.new_version);
-        if (manager.getNotificationChannel(CHANNEL_ID) == null) {
-            NotificationChannel legacy = new NotificationChannel(CHANNEL_ID, context.getString(R.string.notif_channel_name), NotificationManager.IMPORTANCE_DEFAULT);
-            legacy.setDescription(context.getString(R.string.notif_channel_description));
-            manager.createNotificationChannel(legacy);
-        }
+        deleteLegacyChannels(manager);
+        createSoundChannel(context, manager, CHANNEL_IN, context.getString(R.string.notif_channel_in), context.getString(R.string.notif_channel_in_desc), "received");
+        createSoundChannel(context, manager, CHANNEL_OUT, context.getString(R.string.notif_channel_out), context.getString(R.string.notif_channel_out_desc), "lost");
+        createSoundChannel(context, manager, CHANNEL_GIFTS, context.getString(R.string.notif_channel_gifts), context.getString(R.string.notif_channel_gifts_desc), "nft");
+        createSoundChannel(context, manager, CHANNEL_UPDATES, context.getString(R.string.notif_channel_updates), context.getString(R.string.notif_channel_updates_desc), "new_version");
     }
 
-    private static void createSoundChannel(Context context, NotificationManager manager, String id, String name, String desc, int rawSound) {
+    private static void deleteLegacyChannels(NotificationManager manager) {
+        String[] legacy = {"transactions", "transactions_received", "transactions_lost", "gifts_nft", "app_new_version"};
+        for (String id : legacy) {try {if (manager.getNotificationChannel(id) != null) {manager.deleteNotificationChannel(id);}} catch (Exception ignored) {}}
+    }
+
+    private static void createSoundChannel(Context context, NotificationManager manager, String id, String name, String desc, String rawName) {
         if (manager.getNotificationChannel(id) != null) {return;}
-        NotificationChannel channel = new NotificationChannel(id, name, NotificationManager.IMPORTANCE_DEFAULT);
+        NotificationChannel channel = new NotificationChannel(id, name, NotificationManager.IMPORTANCE_HIGH);
         channel.setDescription(desc);
-        Uri sound = Uri.parse(ContentResolver.SCHEME_ANDROID_RESOURCE + "://" + context.getPackageName() + "/" + rawSound);
-        AudioAttributes attrs = new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_NOTIFICATION).setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build();
+        Uri sound = Uri.parse(ContentResolver.SCHEME_ANDROID_RESOURCE + "://" + context.getPackageName() + "/raw/" + rawName);
+        AudioAttributes attrs = new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_NOTIFICATION_EVENT).setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build();
         channel.setSound(sound, attrs);
         channel.enableVibration(true);
+        channel.setVibrationPattern(new long[]{0, 280, 140, 280});
+        channel.enableLights(true);
+        channel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
         manager.createNotificationChannel(channel);
     }
 
     static void schedule(Context context) {
         AlarmManager manager = context.getSystemService(AlarmManager.class);
         if (manager == null) {return;}
+        PendingIntent intent = pollIntent(context);
         if (!Store.wantsAnyNotify(context)) {
-            manager.cancel(pollIntent(context));
+            manager.cancel(intent);
             return;
         }
         boolean needWallet = Store.isNotifyPayments(context) || Store.isNotifyGifts(context);
         if (needWallet && Store.getAddress(context) == null && !Store.isNotifyUpdates(context)) {
-            manager.cancel(pollIntent(context));
+            manager.cancel(intent);
             return;
         }
         ensureChannel(context);
-        long now = android.os.SystemClock.elapsedRealtime();
-        manager.setInexactRepeating(AlarmManager.ELAPSED_REALTIME, now + INTERVAL, INTERVAL, pollIntent(context));
+        long trigger = SystemClock.elapsedRealtime() + INTERVAL;
+        manager.setAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME_WAKEUP, trigger, intent);
     }
 
     static void cancel(Context context) {
@@ -105,12 +110,17 @@ final class Notifications {
         new Thread(() -> {
             try {poll(appContext);}
             catch (Exception error) {android.util.Log.w("GramWallet", "Уведомления: " + error.getMessage());}
-            finally {if (result != null) {result.finish();}}
+            finally {
+                try {if (Store.wantsAnyNotify(appContext)) {schedule(appContext);}} catch (Exception ignored) {}
+                if (result != null) {result.finish();}
+            }
         }, "gram-notify").start();
     }
 
     private static void poll(Context context) throws Api.ApiException {
         if (!Store.isNotifyEnabled(context)) {return;}
+        NotificationManager nm = context.getSystemService(NotificationManager.class);
+        if (nm != null && !nm.areNotificationsEnabled()) {return;}
         if (Store.isNotifyUpdates(context)) {pollUpdates(context);}
         if (!Store.isNotifyPayments(context) && !Store.isNotifyGifts(context)) {return;}
         String address = Store.getAddress(context);
@@ -139,6 +149,7 @@ final class Notifications {
                 continue;
             }
             if (!Store.isNotifyPayments(context)) {continue;}
+            if (!Tx.TYPE_TON.equals(tx.type) && tx.gram <= 0d) {continue;}
             if (tx.incoming) {incoming += tx.gram; incomingCount++;}
             else {outgoing += tx.gram; outgoingCount++;}
             if (focusPay == null || tx.time > focusPay.time) {focusPay = tx;}
@@ -165,8 +176,7 @@ final class Notifications {
             PendingIntent content = PendingIntent.getActivity(context, 3, open, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
             String title = context.getString(R.string.notif_update_title);
             String text = context.getString(R.string.notif_update_text, ver);
-            Notification.Builder builder = new Notification.Builder(context, CHANNEL_UPDATES).setSmallIcon(R.drawable.ic_stat_notify).setContentTitle(title).setContentText(text).setStyle(new Notification.BigTextStyle().bigText(text)).setAutoCancel(true).setContentIntent(content);
-            if (Build.VERSION.SDK_INT >= 26) {builder.setChannelId(CHANNEL_UPDATES);}
+            Notification.Builder builder = new Notification.Builder(context, CHANNEL_UPDATES).setSmallIcon(R.drawable.ic_stat_notify).setContentTitle(title).setContentText(text).setStyle(new Notification.BigTextStyle().bigText(text)).setAutoCancel(true).setContentIntent(content).setCategory(Notification.CATEGORY_STATUS);
             manager.notify(ID_UPDATES, builder.build());
         } catch (Exception ignored) {}
     }
@@ -223,8 +233,7 @@ final class Notifications {
         }
         PendingIntent content = PendingIntent.getActivity(context, 0, history, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         PendingIntent historyIntent = PendingIntent.getActivity(context, 1, new Intent(history), PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-        Notification.Builder builder = new Notification.Builder(context, channelId).setSmallIcon(R.drawable.ic_stat_notify).setContentTitle(title).setContentText(text).setStyle(new Notification.BigTextStyle().bigText(text)).setAutoCancel(true).setContentIntent(content).addAction(new Notification.Action.Builder(android.graphics.drawable.Icon.createWithResource(context, R.drawable.ic_stat_notify), context.getString(R.string.history_title), historyIntent).build());
-        if (Build.VERSION.SDK_INT >= 26) {builder.setChannelId(channelId);}
+        Notification.Builder builder = new Notification.Builder(context, channelId).setSmallIcon(R.drawable.ic_stat_notify).setContentTitle(title).setContentText(text).setStyle(new Notification.BigTextStyle().bigText(text)).setAutoCancel(true).setContentIntent(content).setCategory(Notification.CATEGORY_MESSAGE).setVisibility(Notification.VISIBILITY_PUBLIC).addAction(new Notification.Action.Builder(android.graphics.drawable.Icon.createWithResource(context, R.drawable.ic_stat_notify), context.getString(R.string.history_title), historyIntent).build());
         manager.notify(ID_PAYMENTS, builder.build());
     }
 
@@ -241,8 +250,7 @@ final class Notifications {
         Intent history = new Intent(context, HistoryActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         history.putExtra(HistoryActivity.EXTRA_TX_ID, focus.id);
         PendingIntent content = PendingIntent.getActivity(context, 2, history, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-        Notification.Builder builder = new Notification.Builder(context, CHANNEL_GIFTS).setSmallIcon(R.drawable.ic_stat_notify).setContentTitle(title).setContentText(text).setStyle(new Notification.BigTextStyle().bigText(text)).setAutoCancel(true).setContentIntent(content);
-        if (Build.VERSION.SDK_INT >= 26) {builder.setChannelId(CHANNEL_GIFTS);}
+        Notification.Builder builder = new Notification.Builder(context, CHANNEL_GIFTS).setSmallIcon(R.drawable.ic_stat_notify).setContentTitle(title).setContentText(text).setStyle(new Notification.BigTextStyle().bigText(text)).setAutoCancel(true).setContentIntent(content).setCategory(Notification.CATEGORY_MESSAGE).setVisibility(Notification.VISIBILITY_PUBLIC);
         manager.notify(ID_GIFTS, builder.build());
     }
 

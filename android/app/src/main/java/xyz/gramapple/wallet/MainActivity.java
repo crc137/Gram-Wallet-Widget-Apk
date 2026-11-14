@@ -149,22 +149,27 @@ public class MainActivity extends Activity {
         findViewById(R.id.header_title).setOnLongClickListener(v -> {showDonorClaim(); return true;});
         findViewById(R.id.header_add).setOnClickListener(view -> pinWidget());
         findViewById(R.id.header_settings).setOnClickListener(view -> startActivity(new Intent(this, SettingsActivity.class)));
+        View walletTip = findViewById(R.id.wallet_tip);
+        if (walletTip != null) {walletTip.setOnClickListener(view -> startActivity(new Intent(this, SettingsActivity.class)));}
         findViewById(R.id.header_filter).setOnClickListener(view -> {if (tabPages != null) {tabPages.openHistoryFilter();}});
         findViewById(R.id.today_all).setOnClickListener(view -> openHistory());
         slidePager = findViewById(R.id.slide_pager);
         tabBar = findViewById(R.id.tab_bar);
         tabPages = new TabPages(this, findViewById(R.id.history_root), findViewById(R.id.tokens_root), findViewById(R.id.nfts_root));
-        tabBar.setListener(index -> {
-            if (index > 0 && Store.getAddress(this) == null) {
-                Toast.makeText(this, R.string.save_address_first, Toast.LENGTH_SHORT).show();
-                tabBar.setSelectedIndex(0, true);
-                applyHeader(0);
-                startActivity(new Intent(this, SettingsActivity.class));
-                return;
+        bindTasks();
+        tabBar.setListener(new MorphTabBar.Listener() {
+            @Override public void onTabSelected(int index) {
+                if (needsWallet(index) && Store.getAddress(MainActivity.this) == null) {
+                    tabBar.setSelectedIndex(0, true);
+                    applyHeader(0);
+                    pulseWalletTip();
+                    return;
+                }
+                slidePager.setCurrentPage(index, true);
+                applyHeader(index);
+                if (needsWallet(index)) {tabPages.ensure(index);}
             }
-            slidePager.setCurrentPage(index, true);
-            applyHeader(index);
-            if (index > 0) {tabPages.ensure(index);}
+            @Override public void onTabLocked(int index) {pulseWalletTip();}
         });
         slidePager.setListener(new SlidePager.Listener() {
             @Override public void onScrollProgress(float progress) {
@@ -172,19 +177,16 @@ public class MainActivity extends Activity {
                 applyHeader(Math.round(progress));
             }
             @Override public void onPageSelected(int index) {
+                if (needsWallet(index) && Store.getAddress(MainActivity.this) == null) {
+                    slidePager.setCurrentPage(0, false);
+                    tabBar.setSelectedIndex(0, false);
+                    applyHeader(0);
+                    pulseWalletTip();
+                    return;
+                }
                 tabBar.setSelectedIndex(index, false);
                 applyHeader(index);
-                if (index > 0) {
-                    if (Store.getAddress(MainActivity.this) == null) {
-                        Toast.makeText(MainActivity.this, R.string.save_address_first, Toast.LENGTH_SHORT).show();
-                        slidePager.setCurrentPage(0, true);
-                        tabBar.setSelectedIndex(0, true);
-                        applyHeader(0);
-                        startActivity(new Intent(MainActivity.this, SettingsActivity.class));
-                        return;
-                    }
-                    tabPages.ensure(index);
-                }
+                if (needsWallet(index)) {tabPages.ensure(index);}
             }
         });
         applyHeader(0);
@@ -204,6 +206,8 @@ public class MainActivity extends Activity {
         if (skipNextResumeSync) {skipNextResumeSync = false; return;}
         syncFromStore(false);
         if (tabPages != null) {tabPages.reloadIfAddressChanged();}
+        maybeCelebrateTasks();
+        if (Store.wantsAnyNotify(this)) {Notifications.schedule(this); Notifications.pollAsync(this);}
     }
 
     private void syncFromStore(boolean forceRefresh) {
@@ -239,9 +243,66 @@ public class MainActivity extends Activity {
         if (currentAddress != null && cached == null) {refresh(currentAddress);}
         else if (currentAddress != null && !fresh) {refreshQuiet(currentAddress);}
         if (cardStack != null) {cardStack.setWallets(Store.getWallets(this), currentAddress);}
+        updateWalletGate();
         warmWalletCaches();
         loadToday(!changed && fresh);
         loadChart(!changed && fresh);
+    }
+
+    private Runnable walletPulseLoop;
+
+    private void updateWalletGate() {
+        boolean locked = Store.getAddress(this) == null;
+        if (tabBar != null) {tabBar.setExtrasLocked(locked);}
+        if (slidePager != null) {
+            slidePager.setSwipeLocked(locked);
+            if (locked && slidePager.getCurrentPage() > 0) {
+                slidePager.setCurrentPage(0, false);
+                if (tabBar != null) {tabBar.setSelectedIndex(0, false);}
+                applyHeader(0);
+            }
+        }
+        View tip = findViewById(R.id.wallet_tip);
+        View pulse = findViewById(R.id.wallet_tip_pulse);
+        if (tip != null) {tip.setVisibility(locked ? View.VISIBLE : View.GONE);}
+        if (pulse != null) {
+            pulse.animate().cancel();
+            pulse.removeCallbacks(walletPulseLoop);
+            if (locked) {
+                pulse.setVisibility(View.VISIBLE);
+                walletPulseLoop = () -> {
+                    if (isFinishing() || Store.getAddress(this) != null) {pulse.setVisibility(View.GONE); return;}
+                    pulse.setScaleX(1f); pulse.setScaleY(1f); pulse.setAlpha(0.9f);
+                    pulse.animate().scaleX(1.4f).scaleY(1.4f).alpha(0f).setDuration(1000L).withEndAction(() -> {if (walletPulseLoop != null) {pulse.postDelayed(walletPulseLoop, 500L);}}).start();
+                };
+                pulse.post(walletPulseLoop);
+            } else {
+                walletPulseLoop = null;
+                pulse.setVisibility(View.GONE);
+            }
+        }
+    }
+
+    private void pulseWalletTip() {
+        View tip = findViewById(R.id.wallet_tip);
+        View pulse = findViewById(R.id.wallet_tip_pulse);
+        View settings = findViewById(R.id.header_settings);
+        if (tip != null) {
+            tip.setVisibility(View.VISIBLE);
+            tip.animate().cancel();
+            tip.setScaleX(1f); tip.setScaleY(1f);
+            tip.animate().scaleX(1.08f).scaleY(1.08f).setDuration(160L).withEndAction(() -> tip.animate().scaleX(1f).scaleY(1f).setDuration(160L).start()).start();
+        }
+        if (pulse != null) {
+            pulse.setVisibility(View.VISIBLE);
+            pulse.animate().cancel();
+            pulse.setScaleX(1f); pulse.setScaleY(1f); pulse.setAlpha(1f);
+            pulse.animate().scaleX(1.55f).scaleY(1.55f).alpha(0f).setDuration(520L).start();
+        }
+        if (settings != null) {
+            settings.animate().cancel();
+            settings.animate().scaleX(1.12f).scaleY(1.12f).setDuration(140L).withEndAction(() -> settings.animate().scaleX(1f).scaleY(1f).setDuration(140L).start()).start();
+        }
     }
 
     private void wireFrontCard() {
@@ -367,35 +428,225 @@ public class MainActivity extends Activity {
     }
 
 
+    private static boolean needsWallet(int page) {return page > 0;}
+    private boolean tasksCelebrating;
+
+    private void bindTasks() {
+        LinearLayout list = findViewById(R.id.tasks_list);
+        View progress = findViewById(R.id.tasks_progress);
+        if (list == null) {return;}
+        String cached = Store.loadTasksCache(this);
+        if (cached != null) {
+            try {
+                java.util.List<Api.TaskItem> items = Api.parseTasks(new org.json.JSONObject(cached));
+                if (!items.isEmpty()) {renderTasks(list, items); applyTasksVisibility();}
+            } catch (Exception ignored) {}
+        }
+        if (progress != null && list.getChildCount() == 0) {progress.setVisibility(View.VISIBLE);}
+        new Thread(() -> {
+            java.util.List<Api.TaskItem> items = Api.fetchTasks();
+            runOnUiThread(() -> {
+                if (progress != null) {progress.setVisibility(View.GONE);}
+                if (items.isEmpty()) {
+                    if (list.getChildCount() == 0) {applyTasksVisibility();}
+                    return;
+                }
+                Store.saveTasksCache(this, Api.tasksToCache(items));
+                renderTasks(list, items);
+                applyTasksVisibility();
+                maybeCelebrateTasks();
+            });
+        }, "gram-tasks").start();
+    }
+
+    private void applyTasksVisibility() {
+        if (!Store.areAllTasksDone(this)) {Store.setTasksTabHidden(this, false);}
+        if (Store.isTasksTabHidden(this)) {hideTasksTab(false);}
+    }
+
+    private void renderTasks(LinearLayout list, java.util.List<Api.TaskItem> items) {
+        list.removeAllViews();
+        float d = getResources().getDisplayMetrics().density;
+        Locale locale = getResources().getConfiguration().locale;
+        java.util.ArrayList<String> ids = new java.util.ArrayList<>();
+        for (int i = 0; i < items.size(); i++) {
+            Api.TaskItem task = items.get(i);
+            ids.add(task.id);
+            if (i > 0) {
+                View line = new View(this);
+                LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, Math.round(1 * d));
+                lp.setMarginStart(Math.round(54 * d));
+                line.setLayoutParams(lp);
+                line.setBackgroundColor(0x22FFFFFF);
+                list.addView(line);
+            }
+            list.addView(makeTaskRow(task, locale, d));
+        }
+        Store.setTaskIds(this, ids);
+    }
+
+    private View makeTaskRow(Api.TaskItem task, Locale locale, float d) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setMinimumHeight(Math.round(64 * d));
+        row.setPadding(Math.round(14 * d), Math.round(12 * d), Math.round(12 * d), Math.round(12 * d));
+        ImageView icon = new ImageView(this);
+        int box = Math.round(28 * d);
+        icon.setLayoutParams(new LinearLayout.LayoutParams(box, box));
+        icon.setImageResource(taskIcon(task.icon));
+        icon.setContentDescription(task.titleFor(locale));
+        LinearLayout text = new LinearLayout(this);
+        text.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout.LayoutParams textLp = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+        textLp.setMarginStart(Math.round(12 * d));
+        text.setLayoutParams(textLp);
+        TextView title = new TextView(this);
+        title.setText(task.titleFor(locale));
+        title.setTextColor(0xFFFFFFFF);
+        title.setTextSize(16f);
+        TextView hint = new TextView(this);
+        hint.setText(task.hintFor(locale));
+        hint.setTextColor(0x99FFFFFF);
+        hint.setTextSize(12f);
+        hint.setPadding(0, Math.round(2 * d), 0, 0);
+        text.addView(title);
+        text.addView(hint);
+        Button action = new Button(this);
+        LinearLayout.LayoutParams btnLp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, Math.round(36 * d));
+        btnLp.setMarginStart(Math.round(10 * d));
+        action.setLayoutParams(btnLp);
+        action.setMinHeight(0);
+        action.setMinWidth(0);
+        action.setPadding(Math.round(14 * d), 0, Math.round(14 * d), 0);
+        action.setAllCaps(false);
+        action.setTextSize(13f);
+        action.setStateListAnimator(null);
+        Runnable paint = () -> {
+            boolean done = Store.isTaskDone(this, task.id);
+            action.setText(done ? R.string.task_done : R.string.task_do);
+            action.setBackgroundResource(done ? R.drawable.button_mode_off : R.drawable.button_white);
+            action.setTextColor(done ? 0xFFFFFFFF : 0xFF0088FF);
+        };
+        paint.run();
+        View.OnClickListener open = v -> {
+            try {startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(task.url)));}
+            catch (Exception e) {Toast.makeText(this, R.string.tonconnect_wallet_missing, Toast.LENGTH_SHORT).show(); return;}
+            Store.setTaskDone(this, task.id, true);
+            paint.run();
+            applyDonorBadge(Store.isDonor(this));
+            maybeCelebrateTasks();
+        };
+        row.setOnClickListener(open);
+        action.setOnClickListener(open);
+        row.addView(icon);
+        row.addView(text);
+        row.addView(action);
+        return row;
+    }
+
+    private static int taskIcon(String icon) {
+        if ("group".equals(icon)) {return R.drawable.ic_task_group;}
+        if ("nfts".equals(icon)) {return R.drawable.ic_tab_nfts;}
+        if ("coondev".equals(icon)) {return R.drawable.ic_coondev;}
+        if ("tasks".equals(icon)) {return R.drawable.ic_tab_tasks;}
+        return R.drawable.ic_task_channel;
+    }
+
+    private void maybeCelebrateTasks() {
+        if (tasksCelebrating || Store.isTasksTabHidden(this)) {return;}
+        if (!Store.areAllTasksDone(this)) {return;}
+        if (tabBar == null || tabBar.getTabCount() <= 4) {Store.setTasksTabHidden(this, true); return;}
+        tasksCelebrating = true;
+        ViewGroup root = (ViewGroup) findViewById(android.R.id.content);
+        TaskSaluteView salute = new TaskSaluteView(this);
+        root.addView(salute, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        salute.play(() -> {
+            hideTasksTab(true);
+            root.removeView(salute);
+            tasksCelebrating = false;
+            applyDonorBadge(Store.isDonor(this));
+        });
+    }
+
+    private void hideTasksTab(boolean animate) {
+        if (tabBar == null || slidePager == null) {return;}
+        if (tabBar.getTabCount() <= 4) {Store.setTasksTabHidden(this, true); return;}
+        Store.setTasksTabHidden(this, true);
+        int cur = slidePager.getCurrentPage();
+        Runnable remove = () -> {
+            if (slidePager.getChildCount() >= 5) {slidePager.removePageAt(4);}
+            tabBar.setTabCount(4);
+            if (cur >= 4) {
+                slidePager.setCurrentPage(0, false);
+                tabBar.setSelectedIndex(0, false);
+                applyHeader(0);
+            } else {
+                tabBar.setSelectedIndex(cur, false);
+                applyHeader(cur);
+            }
+            applyDonorBadge(Store.isDonor(this));
+        };
+        View tasks = findViewById(R.id.tasks_root);
+        if (animate && tasks != null) {
+            tasks.animate().alpha(0f).scaleX(0.92f).scaleY(0.92f).setDuration(420L).withEndAction(() -> {
+                tasks.setAlpha(1f);
+                tasks.setScaleX(1f);
+                tasks.setScaleY(1f);
+                remove.run();
+            }).start();
+            tabBar.animate().alpha(0.55f).setDuration(200L).withEndAction(() -> tabBar.animate().alpha(1f).setDuration(280L).start()).start();
+        } else {remove.run();}
+    }
+
     private void applyHeader(int page) {
         TextView title = findViewById(R.id.header_title);
         View add = findViewById(R.id.header_add);
         View settings = findViewById(R.id.header_settings);
         View filter = findViewById(R.id.header_filter);
+        View tip = findViewById(R.id.wallet_tip);
+        View pulse = findViewById(R.id.wallet_tip_pulse);
         if (title == null) {return;}
+        boolean needWallet = Store.getAddress(this) == null;
         if (page <= 0) {
             title.setText(R.string.header_logo);
             add.setVisibility(View.VISIBLE);
             settings.setVisibility(View.VISIBLE);
             filter.setVisibility(View.GONE);
+            if (tip != null) {tip.setVisibility(needWallet ? View.VISIBLE : View.GONE);}
+            if (pulse != null && !needWallet) {pulse.setVisibility(View.GONE);}
             applyDonorBadge(Store.isDonor(this));
         } else if (page == 1) {
             title.setText(R.string.history_title);
             add.setVisibility(View.INVISIBLE);
             settings.setVisibility(View.GONE);
             filter.setVisibility(View.VISIBLE);
+            if (tip != null) {tip.setVisibility(View.GONE);}
+            if (pulse != null) {pulse.setVisibility(View.GONE);}
             if (headerDonor != null) {headerDonor.setVisibility(View.GONE);}
         } else if (page == 2) {
             title.setText(R.string.tokens_title);
             add.setVisibility(View.INVISIBLE);
             settings.setVisibility(View.GONE);
             filter.setVisibility(View.GONE);
+            if (tip != null) {tip.setVisibility(View.GONE);}
+            if (pulse != null) {pulse.setVisibility(View.GONE);}
             if (headerDonor != null) {headerDonor.setVisibility(View.GONE);}
-        } else {
+        } else if (page == 3) {
             title.setText(R.string.nfts_title);
             add.setVisibility(View.INVISIBLE);
             settings.setVisibility(View.GONE);
             filter.setVisibility(View.GONE);
+            if (tip != null) {tip.setVisibility(View.GONE);}
+            if (pulse != null) {pulse.setVisibility(View.GONE);}
+            if (headerDonor != null) {headerDonor.setVisibility(View.GONE);}
+        } else {
+            title.setText(R.string.tasks_title);
+            add.setVisibility(View.INVISIBLE);
+            settings.setVisibility(View.GONE);
+            filter.setVisibility(View.GONE);
+            if (tip != null) {tip.setVisibility(View.GONE);}
+            if (pulse != null) {pulse.setVisibility(View.GONE);}
             if (headerDonor != null) {headerDonor.setVisibility(View.GONE);}
         }
     }

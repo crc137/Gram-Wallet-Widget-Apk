@@ -26,10 +26,13 @@ import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewOutlineProvider;
 import android.view.Window;
 import android.view.WindowManager;
 import android.view.animation.PathInterpolator;
 import android.widget.FrameLayout;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -84,7 +87,7 @@ final class TxDetail {
     }
 
     private static void bind(Activity activity, View sheet, Tx tx) {
-        View gem = sheet.findViewById(R.id.tx_detail_gem);
+        ImageView gem = sheet.findViewById(R.id.tx_detail_gem);
         TextView amount = sheet.findViewById(R.id.tx_detail_amount);
         TextView usd = sheet.findViewById(R.id.tx_detail_usd);
         TextView partyLabel = sheet.findViewById(R.id.tx_detail_party_label);
@@ -92,34 +95,83 @@ final class TxDetail {
         TextView addressView = sheet.findViewById(R.id.tx_detail_address);
         TextView comment = sheet.findViewById(R.id.tx_detail_comment);
         TextView date = sheet.findViewById(R.id.tx_detail_date);
+        float density = activity.getResources().getDisplayMetrics().density;
         partyLabel.setText(tx.incoming ? R.string.tx_detail_sender : R.string.tx_detail_recipient);
+        String who = tx.counterparty == null || tx.counterparty.isEmpty() ? "" : tx.counterparty.trim();
+        String whoLabel = who.isEmpty() ? activity.getString(R.string.tx_detail_dash) : (who.indexOf('.') >= 0 || who.length() <= 18 ? who : who.substring(0, 6) + "…" + who.substring(who.length() - 4));
+        String whoAddress = who.isEmpty() ? activity.getString(R.string.tx_detail_dash) : Format.displayAddress(who);
         if (tx.isNft()) {
-            gem.setVisibility(View.GONE);
-            amount.setText(tx.incoming ? "+ NFT" : "− NFT");
-            amount.setTextColor(tx.incoming ? 0xFF34C759 : 0xFF111111);
-            usd.setText(tx.nftName.isEmpty() ? activity.getString(R.string.tx_nft) : tx.nftName);
-            party.setText(tx.collection.isEmpty() ? activity.getString(R.string.tx_detail_dash) : tx.collection);
-            addressView.setText(activity.getString(R.string.tx_detail_dash));
-            comment.setText(activity.getString(R.string.tx_detail_dash));
-        } else {
+            int size = Math.round(128 * density);
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(size, size);
+            lp.gravity = Gravity.CENTER_HORIZONTAL;
+            lp.topMargin = Math.round(4 * density);
+            gem.setLayoutParams(lp);
             gem.setVisibility(View.VISIBLE);
+            gem.setBackgroundResource(R.drawable.tx_detail_nft_bg);
+            gem.setClipToOutline(true);
+            gem.setOutlineProvider(ViewOutlineProvider.BACKGROUND);
+            gem.setScaleType(ImageView.ScaleType.CENTER_CROP);
+            gem.setPadding(0, 0, 0, 0);
+            gem.setAlpha(1f);
+            String image = detailNftImage(tx.image);
+            if (image.isEmpty()) {
+                ImageLoader.load(activity, gem, "");
+                gem.setImageResource(R.drawable.ic_image_placeholder);
+                gem.setScaleType(ImageView.ScaleType.FIT_CENTER);
+                gem.setAlpha(0.55f);
+            } else {ImageLoader.load(activity, gem, image);}
+            amount.setText(R.string.tx_detail_nft_transfer);
+            amount.setTextColor(0xFF8E8E93);
+            amount.setTextSize(14f);
+            amount.setTypeface(amount.getTypeface(), android.graphics.Typeface.NORMAL);
+            usd.setText(tx.nftName.isEmpty() ? activity.getString(R.string.tx_nft) : tx.nftName);
+            usd.setTextColor(0xFF111111);
+            usd.setTextSize(22f);
+            usd.setTypeface(usd.getTypeface(), android.graphics.Typeface.BOLD);
+            party.setText(whoLabel);
+            addressView.setText(whoAddress);
+            comment.setText(activity.getString(R.string.tx_detail_dash));
+            comment.setMaxLines(2);
+        } else {
+            int size = Math.round(72 * density);
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(size, size);
+            lp.gravity = Gravity.CENTER_HORIZONTAL;
+            gem.setLayoutParams(lp);
+            gem.setVisibility(View.VISIBLE);
+            gem.setBackground(null);
+            gem.setClipToOutline(false);
+            ImageLoader.load(activity, gem, "");
+            gem.setImageResource(R.drawable.blue_diamond);
+            gem.setScaleType(ImageView.ScaleType.FIT_CENTER);
+            gem.setAlpha(1f);
+            gem.setPadding(0, 0, 0, 0);
             String sign = tx.incoming ? "+" : "−";
             String grams = Format.shortGram(tx.gram);
+            amount.setTextSize(28f);
+            amount.setTypeface(amount.getTypeface(), android.graphics.Typeface.BOLD);
             amount.setText(gramAmountSpan(sign + grams, !tx.success), TextView.BufferType.SPANNABLE);
+            usd.setTextSize(14f);
+            usd.setTypeface(usd.getTypeface(), android.graphics.Typeface.NORMAL);
+            usd.setTextColor(0xFF8E8E93);
             WalletData data = Store.load(activity);
             if (data != null && data.hasUsd && data.gram > 0) {
                 double approx = tx.gram * (data.totalUsd / data.gram);
                 usd.setText(activity.getString(R.string.tx_detail_usd, Format.shortGram(approx)));
             } else {usd.setText(R.string.tx_detail_dash);}
-            String who = tx.counterparty == null || tx.counterparty.isEmpty() ? activity.getString(R.string.tx_unknown) : tx.counterparty;
-            party.setText(who.indexOf('.') >= 0 || who.length() <= 18 ? who : who.substring(0, 6) + "…" + who.substring(who.length() - 4));
-            addressView.setText(Format.chunkAddress(who).replace('\n', ' '));
+            party.setText(who.isEmpty() ? activity.getString(R.string.tx_unknown) : whoLabel);
+            addressView.setText(who.isEmpty() ? activity.getString(R.string.tx_unknown) : whoAddress);
             String note = tx.comment == null ? "" : tx.comment.trim().replace('\n', ' ');
             if (note.length() > 120) {note = note.substring(0, 117) + "…";}
             comment.setText(note.isEmpty() ? activity.getString(R.string.tx_detail_dash) : note);
             comment.setMaxLines(3);
         }
         date.setText(new SimpleDateFormat("MMM d, HH:mm", Locale.getDefault()).format(new Date(tx.time * 1000L)));
+    }
+
+    private static String detailNftImage(String url) {
+        if (url == null || url.isEmpty()) {return "";}
+        if (url.contains("/pr:small/")) {return url.replace("/pr:small/", "/pr:big/");}
+        return url;
     }
 
     private static CharSequence gramAmountSpan(String value, boolean failed) {

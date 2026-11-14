@@ -94,7 +94,7 @@ final class ImageLoader {
         int pad = Math.round(8f * view.getResources().getDisplayMetrics().density);
         view.setScaleType(ImageView.ScaleType.FIT_CENTER);
         view.setPadding(pad, pad, pad, pad);
-        view.setImageResource(R.drawable.ic_coondev);
+        view.setImageResource(R.drawable.ic_image_placeholder);
         view.setAlpha(0.5f);
         view.setScaleX(1f);
         view.setScaleY(1f);
@@ -166,10 +166,14 @@ final class ImageLoader {
             int marker = url.indexOf("u=");
             if (marker >= 0) {
                 String raw = Uri.decode(url.substring(marker + 2));
-                if (raw != null && !raw.isEmpty() && !"null".equalsIgnoreCase(raw)) {data = fetchBytes(raw);}
+                if (raw != null && !raw.isEmpty() && !"null".equalsIgnoreCase(raw)) {
+                    data = fetchBytes(raw);
+                    if (data == null && raw.contains("/pr:small/")) {data = fetchBytes(raw.replace("/pr:small/", "/pr:big/"));}
+                }
             }
         }
         if (data == null && url.contains("/pr:small/")) {data = fetchBytes(url.replace("/pr:small/", "/pr:big/"));}
+        if (data == null && !url.contains("gram.org/api/img") && (url.startsWith("https://") || url.startsWith("http://"))) {data = fetchBytes("https://gram.org/api/img?u=" + Uri.encode(url));}
         return data;
     }
 
@@ -184,6 +188,7 @@ final class ImageLoader {
             connection.setRequestProperty("Accept", "image/*,*/*;q=0.8");
             int code = connection.getResponseCode();
             if (code < 200 || code >= 300) {return null;}
+            String type = connection.getContentType();
             ByteArrayOutputStream buffer = new ByteArrayOutputStream();
             try (InputStream stream = connection.getInputStream()) {
                 byte[] chunk = new byte[8192];
@@ -195,8 +200,20 @@ final class ImageLoader {
                     buffer.write(chunk, 0, read);
                 }
             }
-            return buffer.toByteArray();
+            byte[] data = buffer.toByteArray();
+            if (data.length < 24) {return null;}
+            if (type != null && type.startsWith("text/") && !isImageMagic(data)) {return null;}
+            return data;
         } catch (Exception error) {return null;} finally {if (connection != null) {connection.disconnect();}}
+    }
+
+    private static boolean isImageMagic(byte[] data) {
+        if (data == null || data.length < 4) {return false;}
+        if ((data[0] & 0xFF) == 0x89 && data[1] == 0x50 && data[2] == 0x4E && data[3] == 0x47) {return true;}
+        if ((data[0] & 0xFF) == 0xFF && (data[1] & 0xFF) == 0xD8) {return true;}
+        if (data[0] == 'R' && data[1] == 'I' && data[2] == 'F' && data[3] == 'F') {return true;}
+        if (data[0] == 'G' && data[1] == 'I' && data[2] == 'F' && data[3] == '8') {return true;}
+        return data.length >= 12 && data[4] == 'f' && data[5] == 't' && data[6] == 'y' && data[7] == 'p';
     }
 
     private static Bitmap decode(byte[] data) {

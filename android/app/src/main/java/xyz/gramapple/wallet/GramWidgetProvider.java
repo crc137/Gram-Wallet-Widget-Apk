@@ -13,6 +13,7 @@
 package xyz.gramapple.wallet;
 import android.app.AlarmManager;
 import android.app.PendingIntent;
+import android.appwidget.AppWidgetHost;
 import android.appwidget.AppWidgetManager;
 import android.appwidget.AppWidgetProvider;
 import android.content.ComponentName;
@@ -97,6 +98,21 @@ public class GramWidgetProvider extends AppWidgetProvider {
         render(context, manager, manager.getAppWidgetIds(provider));
     }
 
+    static void removeForAddress(Context context, String address) {
+        if (address == null || address.isEmpty()) {return;}
+        Context app = context.getApplicationContext();
+        AppWidgetManager manager = AppWidgetManager.getInstance(app);
+        ComponentName provider = new ComponentName(app, GramWidgetProvider.class);
+        int[] all = manager.getAppWidgetIds(provider);
+        int[] hit = Store.widgetIdsForAddress(app, address, all);
+        if (hit.length == 0) {return;}
+        Store.markWidgetsUnbound(app, hit);
+        Store.clearCacheForAddress(app, address);
+        AppWidgetHost host = new AppWidgetHost(app, 1024);
+        for (int id : hit) {try {host.deleteAppWidgetId(id);} catch (Throwable ignored) {}}
+        render(app, manager, hit);
+    }
+
     static void renderOne(Context context, int appWidgetId) {
         if (appWidgetId <= 0) {return;}
         AppWidgetManager manager = AppWidgetManager.getInstance(context);
@@ -106,14 +122,17 @@ public class GramWidgetProvider extends AppWidgetProvider {
     private static void render(Context context, AppWidgetManager manager, int[] ids) {
         if (ids == null || ids.length == 0) {return;}
         for (int id : ids) {
-            String address = Store.getWidgetAddress(context, id);
-            if (address != null && !Store.isWalletKnown(context, address)) {
-                Store.clearWidgetBindingsForAddress(context, address);
-                address = null;
-            }
-            WalletData data = address == null ? null : Store.loadCache(context, address);
-            CardDecor card = address == null ? CardDecor.EMPTY : Store.loadCardCache(context, address);
-            manager.updateAppWidget(id, build(context, id, address, data, card));
+            try {
+                String address = Store.getWidgetAddress(context, id);
+                if (address != null && !Store.isWalletKnown(context, address)) {
+                    Store.clearWidgetBindingsForAddress(context, address);
+                    address = null;
+                }
+                if (Store.isWidgetMarkedUnbound(context, id)) {address = null;}
+                WalletData data = address == null ? null : Store.loadCache(context, address);
+                CardDecor card = address == null ? CardDecor.EMPTY : Store.loadCardCache(context, address);
+                manager.updateAppWidget(id, build(context, id, address, data, card));
+            } catch (Throwable ignored) {}
         }
     }
 

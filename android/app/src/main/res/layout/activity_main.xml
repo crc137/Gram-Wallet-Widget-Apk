@@ -18,7 +18,13 @@
                 <TextView android:id="@+id/header_title" android:layout_width="wrap_content" android:layout_height="wrap_content" android:letterSpacing="0.12" android:text="@string/header_logo" android:textColor="#FFFFFFFF" android:textSize="18sp" android:textStyle="bold" />
                 <ImageView android:id="@+id/header_donor" android:layout_width="18dp" android:layout_height="16dp" android:layout_marginStart="8dp" android:contentDescription="@string/donor_badge" android:scaleType="fitCenter" android:src="@drawable/ic_donor_badge" android:visibility="gone" />
             </LinearLayout>
-            <ImageButton android:id="@+id/header_settings" android:layout_width="36dp" android:layout_height="36dp" android:background="@drawable/header_circle_bg" android:contentDescription="@string/settings_open" android:padding="8dp" android:scaleType="fitCenter" android:src="@drawable/ic_settings" />
+            <LinearLayout android:id="@+id/wallet_tip_group" android:layout_width="wrap_content" android:layout_height="36dp" android:gravity="center_vertical" android:orientation="horizontal">
+                <TextView android:id="@+id/wallet_tip" android:layout_width="wrap_content" android:layout_height="36dp" android:layout_marginEnd="6dp" android:background="@drawable/wallet_tip_bg" android:gravity="center" android:includeFontPadding="false" android:paddingStart="12dp" android:paddingEnd="12dp" android:text="@string/add_wallet_tip" android:textColor="@color/gram_blue" android:textSize="12sp" android:textStyle="bold" android:visibility="gone" />
+                <FrameLayout android:layout_width="36dp" android:layout_height="36dp">
+                    <View android:id="@+id/wallet_tip_pulse" android:layout_width="36dp" android:layout_height="36dp" android:layout_gravity="center" android:background="@drawable/wallet_tip_pulse" android:visibility="gone" />
+                    <ImageButton android:id="@+id/header_settings" android:layout_width="36dp" android:layout_height="36dp" android:layout_gravity="center" android:background="@drawable/header_circle_bg" android:contentDescription="@string/settings_open" android:padding="8dp" android:scaleType="fitCenter" android:src="@drawable/ic_settings" />
+                </FrameLayout>
+            </LinearLayout>
             <TextView android:id="@+id/header_filter" android:layout_width="wrap_content" android:layout_height="36dp" android:background="?android:attr/selectableItemBackgroundBorderless" android:gravity="center" android:paddingStart="4dp" android:paddingEnd="0dp" android:text="@string/filter_title" android:textColor="#FFFFFFFF" android:textSize="14sp" android:textStyle="bold" android:visibility="gone" />
         </LinearLayout>
         <xyz.gramapple.wallet.SlidePager android:id="@+id/slide_pager" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1">
@@ -26,6 +32,7 @@
             <include layout="@layout/activity_history" />
             <include layout="@layout/activity_tokens" />
             <include layout="@layout/activity_nfts" />
+            <include layout="@layout/page_tasks" />
         </xyz.gramapple.wallet.SlidePager>
     </LinearLayout>
     <xyz.gramapple.wallet.MorphTabBar android:id="@+id/tab_bar" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_gravity="bottom" android:layout_marginStart="20dp" android:layout_marginEnd="20dp" android:layout_marginBottom="10dp" />

@@ -141,13 +141,15 @@ final class TabPages {
             historyProgress = historyRoot.findViewById(R.id.history_progress);
             TextView filter = historyRoot.findViewById(R.id.history_filter);
             filter.setOnClickListener(v -> showFilterSheet());
-            historyMore = makeMore(R.string.history_load_more, v -> {if (historyCursor != null) {loadHistory(historyCursor, true);}});
-            historyList.addFooterView(historyMore, null, false);
-            historyAdapter = new HistoryAdapter(activity, new ArrayList<>());
-            historyList.setAdapter(historyAdapter);
-            historyList.setOnItemClickListener((p, v, pos, id) -> {
-                if (pos >= 0 && pos < historyAdapter.getCount()) {showTxDetail(historyAdapter.getItem(pos));}
-            });
+            if (historyMore == null) {
+                historyMore = makeMore(R.string.history_load_more, v -> {if (historyCursor != null) {loadHistory(historyCursor, true);}});
+                historyList.addFooterView(historyMore, null, false);
+                historyAdapter = new HistoryAdapter(activity, new ArrayList<>());
+                historyList.setAdapter(historyAdapter);
+                historyList.setOnItemClickListener((p, v, pos, id) -> {
+                    if (pos >= 0 && pos < historyAdapter.getCount()) {showTxDetail(historyAdapter.getItem(pos));}
+                });
+            }
             dirFilter = Store.getHistDir(activity);
             typeFilter = Store.getHistType(activity);
             periodFilter = Store.getHistPeriod(activity);
@@ -163,10 +165,12 @@ final class TabPages {
             tokensList = tokensRoot.findViewById(R.id.tokens_list);
             tokensStatus = tokensRoot.findViewById(R.id.tokens_status);
             tokensProgress = tokensRoot.findViewById(R.id.tokens_progress);
-            tokensMore = makeMore(R.string.tokens_load_more, v -> {if (tokensCursor != null) {loadTokens(tokensCursor, true);}});
-            tokensList.addFooterView(tokensMore, null, false);
-            tokensAdapter = new TokenAdapter(activity, new ArrayList<>());
-            tokensList.setAdapter(tokensAdapter);
+            if (tokensMore == null) {
+                tokensMore = makeMore(R.string.tokens_load_more, v -> {if (tokensCursor != null) {loadTokens(tokensCursor, true);}});
+                tokensList.addFooterView(tokensMore, null, false);
+                tokensAdapter = new TokenAdapter(activity, new ArrayList<>());
+                tokensList.setAdapter(tokensAdapter);
+            }
             tokensReady = true;
             loadTokens(null, false);
         } else if (tokensAdapter.getCount() == 0 && !tokensLoading) {loadTokens(null, false);}
@@ -177,14 +181,16 @@ final class TabPages {
             nftsList = nftsRoot.findViewById(R.id.nfts_list);
             nftsStatus = nftsRoot.findViewById(R.id.nfts_status);
             nftsProgress = nftsRoot.findViewById(R.id.nfts_progress);
-            nftsMore = makeMore(R.string.nfts_load_more, v -> {if (nftsCursor != null) {loadNfts(nftsCursor, true);}});
-            nftsList.addFooterView(nftsMore, null, false);
-            nftsAdapter = new NftAdapter(activity, new ArrayList<>());
-            nftsList.setAdapter(nftsAdapter);
-            nftsList.setOnItemClickListener((p, v, pos, id) -> {
-                if (pos < 0 || pos >= nftsAdapter.getCount()) {return;}
-                openNft(nftsAdapter.getItem(pos));
-            });
+            if (nftsMore == null) {
+                nftsMore = makeMore(R.string.nfts_load_more, v -> {if (nftsCursor != null) {loadNfts(nftsCursor, true);}});
+                nftsList.addFooterView(nftsMore, null, false);
+                nftsAdapter = new NftAdapter(activity, new ArrayList<>());
+                nftsList.setAdapter(nftsAdapter);
+                nftsList.setOnItemClickListener((p, v, pos, id) -> {
+                    if (pos < 0 || pos >= nftsAdapter.getCount()) {return;}
+                    openNft(nftsAdapter.getItem(pos));
+                });
+            }
             nftsReady = true;
             loadNfts(null, false);
         } else if (nftsAdapter.getCount() == 0 && !nftsLoading) {loadNfts(null, false);}
@@ -217,6 +223,11 @@ final class TabPages {
         return b;
     }
 
+    private static void setMoreVisible(Button more, String cursor, int count) {
+        if (more == null) {return;}
+        more.setVisibility(cursor != null && count > 0 ? View.VISIBLE : View.GONE);
+    }
+
     private void loadHistory(String cursor, boolean append) {
         if (historyLoading || boundAddress == null) {return;}
         historyLoading = true;
@@ -245,7 +256,7 @@ final class TabPages {
                         historyStatus.setVisibility(View.VISIBLE);
                     } else {
                         Toast.makeText(activity, R.string.history_error, Toast.LENGTH_SHORT).show();
-                        historyMore.setVisibility(historyCursor == null ? View.GONE : View.VISIBLE);
+                        setMoreVisible(historyMore, historyCursor, historyAdapter.getCount());
                     }
                 });
             }
@@ -264,7 +275,7 @@ final class TabPages {
             visible.add(tx);
         }
         historyAdapter.replaceAll(visible);
-        historyMore.setVisibility(historyCursor == null ? View.GONE : View.VISIBLE);
+        setMoreVisible(historyMore, historyCursor, historyAdapter.getCount());
         if (historyAdapter.getCount() == 0) {
             historyStatus.setText(R.string.history_empty);
             historyStatus.setVisibility(View.VISIBLE);
@@ -336,7 +347,7 @@ final class TabPages {
                     if (!append) {tokensAdapter.clear();}
                     tokensAdapter.addAll(page.items);
                     tokensCursor = page.next;
-                    tokensMore.setVisibility(tokensCursor == null ? View.GONE : View.VISIBLE);
+                    setMoreVisible(tokensMore, tokensCursor, tokensAdapter.getCount());
                     if (tokensAdapter.getCount() == 0) {
                         tokensStatus.setText(R.string.tokens_empty);
                         tokensStatus.setVisibility(View.VISIBLE);
@@ -350,9 +361,10 @@ final class TabPages {
                     if (tokensAdapter.getCount() == 0) {
                         tokensStatus.setText(R.string.tokens_error);
                         tokensStatus.setVisibility(View.VISIBLE);
+                        setMoreVisible(tokensMore, null, 0);
                     } else {
                         Toast.makeText(activity, R.string.tokens_error, Toast.LENGTH_SHORT).show();
-                        tokensMore.setVisibility(tokensCursor == null ? View.GONE : View.VISIBLE);
+                        setMoreVisible(tokensMore, tokensCursor, tokensAdapter.getCount());
                     }
                 });
             }
@@ -375,12 +387,12 @@ final class TabPages {
                     if (!append) {nftsAdapter.clear();}
                     nftsAdapter.addAll(page.items);
                     nftsCursor = page.next;
-                    nftsMore.setVisibility(nftsCursor == null ? View.GONE : View.VISIBLE);
+                    setMoreVisible(nftsMore, nftsCursor, nftsAdapter.getCount());
                     if (nftsAdapter.getCount() == 0) {
                         nftsStatus.setText(R.string.nfts_empty);
                         nftsStatus.setVisibility(View.VISIBLE);
                     } else {nftsStatus.setVisibility(View.GONE);}
-                    if (nftsCursor != null) {loadNfts(nftsCursor, true);}
+                    if (nftsCursor != null && nftsAdapter.getCount() > 0) {loadNfts(nftsCursor, true);}
                 });
             } catch (Exception e) {
                 activity.runOnUiThread(() -> {
@@ -390,9 +402,10 @@ final class TabPages {
                     if (nftsAdapter.getCount() == 0) {
                         nftsStatus.setText(R.string.nfts_error);
                         nftsStatus.setVisibility(View.VISIBLE);
+                        setMoreVisible(nftsMore, null, 0);
                     } else {
                         Toast.makeText(activity, R.string.nfts_error, Toast.LENGTH_SHORT).show();
-                        nftsMore.setVisibility(nftsCursor == null ? View.GONE : View.VISIBLE);
+                        setMoreVisible(nftsMore, nftsCursor, nftsAdapter.getCount());
                     }
                 });
             }

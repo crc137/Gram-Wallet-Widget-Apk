@@ -29,6 +29,13 @@ final class Format {
         return cardNumber(value);
     }
 
+    static String displayAddress(String address) {
+        if (address == null || address.isEmpty()) {return "";}
+        String raw = address.replaceAll("\\s+", "");
+        if (raw.indexOf('.') >= 0 || raw.length() <= 24) {return raw;}
+        return chunkAddress(raw).replace('\n', ' ');
+    }
+
     static String chunkAddress(String address) {
         if (address == null || address.isEmpty()) {return "";}
         String raw = address.replaceAll("\\s+", "");

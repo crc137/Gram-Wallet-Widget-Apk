@@ -51,6 +51,7 @@ final class Api {
     private static final String GITHUB_LATEST = "https://api.github.com/repos/crc137/Gram-Wallet-Widget-Bot/releases/latest";
     private static final String GITHUB_TAG_RELEASE = "https://api.github.com/repos/crc137/Gram-Wallet-Widget-Bot/releases/tags/";
     private static final String DONOR_API = "https://gram-wallet-widget-bot.direct-ban-guard.workers.dev/donor";
+    private static final String TASKS_API = "https://gram-wallet-widget-bot.direct-ban-guard.workers.dev/tasks";
     private static final Pattern RELEASE_CODE = Pattern.compile("(?:\\(b|\\.b)(\\d+)\\)?", Pattern.CASE_INSENSITIVE);
     private static final Pattern VERSION_RANK = Pattern.compile("(\\d+)\\.(\\d+)\\.(\\d+)");
     private Api() {}    static String walletUrl(String address) {return "https://gram.org/address/" + android.net.Uri.encode(address);}
@@ -88,6 +89,68 @@ final class Api {
             this.code = code;
             this.sizeBytes = Math.max(0L, sizeBytes);
         }
+    }
+
+    static final class TaskItem {
+        final String id;
+        final String url;
+        final String icon;
+        final String title;
+        final String titleRu;
+        final String hint;
+        final String hintRu;
+        TaskItem(String id, String url, String icon, String title, String titleRu, String hint, String hintRu) {
+            this.id = id == null ? "" : id;
+            this.url = url == null ? "" : url;
+            this.icon = icon == null ? "channel" : icon;
+            this.title = title == null ? "" : title;
+            this.titleRu = titleRu == null || titleRu.isEmpty() ? this.title : titleRu;
+            this.hint = hint == null ? "" : hint;
+            this.hintRu = hintRu == null || hintRu.isEmpty() ? this.hint : hintRu;
+        }
+        String titleFor(Locale locale) {return locale != null && "ru".equals(locale.getLanguage()) ? titleRu : title;}
+        String hintFor(Locale locale) {return locale != null && "ru".equals(locale.getLanguage()) ? hintRu : hint;}
+    }
+
+    static List<TaskItem> fetchTasks() {
+        try {
+            JSONObject json = getJson(TASKS_API, TIMEOUT_MS);
+            return parseTasks(json);
+        } catch (Exception error) {return new ArrayList<>();}
+    }
+
+    static List<TaskItem> parseTasks(JSONObject json) {
+        List<TaskItem> out = new ArrayList<>();
+        if (json == null) {return out;}
+        JSONArray arr = json.optJSONArray("tasks");
+        if (arr == null) {return out;}
+        for (int i = 0; i < arr.length(); i++) {
+            JSONObject o = arr.optJSONObject(i);
+            if (o == null) {continue;}
+            String id = o.optString("id", "").trim();
+            String url = o.optString("url", "").trim();
+            if (id.isEmpty() || url.isEmpty()) {continue;}
+            out.add(new TaskItem(id, url, o.optString("icon", "channel"), o.optString("title", id), o.optString("title_ru", ""), o.optString("hint", ""), o.optString("hint_ru", "")));
+        }
+        return out;
+    }
+
+    static String tasksToCache(List<TaskItem> tasks) {
+        JSONObject root = new JSONObject();
+        JSONArray arr = new JSONArray();
+        try {
+            if (tasks != null) {
+                for (TaskItem t : tasks) {
+                    JSONObject o = new JSONObject();
+                    o.put("id", t.id); o.put("url", t.url); o.put("icon", t.icon);
+                    o.put("title", t.title); o.put("title_ru", t.titleRu);
+                    o.put("hint", t.hint); o.put("hint_ru", t.hintRu);
+                    arr.put(o);
+                }
+            }
+            root.put("tasks", arr);
+        } catch (Exception ignored) {}
+        return root.toString();
     }
 
     static boolean isDonor(String address) {
@@ -367,7 +430,11 @@ final class Api {
                 if (nfts != null && !item.isEmpty()) {nft = nfts.optJSONObject(item);}
             }
             String newOwner = details.optString("new_owner", "");
-            boolean incoming = address.equals(newOwner);
+            if (newOwner.isEmpty() && actionDetails != null) {newOwner = actionDetails.optString("to", "");}
+            String oldOwner = details.optString("old_owner", details.optString("previous_owner", details.optString("oldOwner", "")));
+            if (oldOwner.isEmpty() && actionDetails != null) {oldOwner = actionDetails.optString("from", "");}
+            boolean incoming = !newOwner.isEmpty() && address.equals(newOwner);
+            String counterparty = incoming ? oldOwner : newOwner;
             String nftName = nft == null ? "" : nft.optString("name", "");
             JSONObject collection = nft == null ? null : nft.optJSONObject("collection");
             String collectionName = collection == null ? "" : collection.optString("name", "");
@@ -376,7 +443,7 @@ final class Api {
                 String named = nameFor(names, collectionAddress);
                 collectionName = named.equals(collectionAddress) ? "" : named;
             }
-            return new Tx(id, Tx.TYPE_NFT, incoming, success, time, 0d, "", "", nftName, collectionName, nftImage(nft));
+            return new Tx(id, Tx.TYPE_NFT, incoming, success, time, 0d, nameFor(names, counterparty), "", nftName, collectionName, nftImage(nft));
         }
         String source = details.optString("source", details.optString("from", ""));
         String destination = details.optString("destination", details.optString("to", ""));
@@ -394,13 +461,13 @@ final class Api {
 
     private static String nftImage(JSONObject nft) {
         if (nft == null) {return "";}
-        String image = jsonText(nft, "image");
-        if (image.isEmpty()) {image = jsonText(nft, "image_origin");}
+        String image = jsonText(nft, "image_origin");
+        if (image.isEmpty()) {image = jsonText(nft, "image");}
         if (image.isEmpty()) {
             JSONObject collection = nft.optJSONObject("collection");
             if (collection != null) {
-                image = jsonText(collection, "image");
-                if (image.isEmpty()) {image = jsonText(collection, "image_origin");}
+                image = jsonText(collection, "image_origin");
+                if (image.isEmpty()) {image = jsonText(collection, "image");}
             }
         }
         return mediaUrl(image);
@@ -414,7 +481,8 @@ final class Api {
 
     private static String mediaUrl(String raw) {
         if (raw == null || raw.isEmpty() || "null".equalsIgnoreCase(raw)) {return "";}
-        if (raw.startsWith("https://") || raw.startsWith("http://")) {return raw;}
+        if (raw.startsWith("https://gram.org/") || raw.startsWith("http://gram.org/")) {return raw;}
+        if (raw.startsWith("https://") || raw.startsWith("http://")) {return imageUrl(raw);}
         return imageUrl(raw);
     }
 

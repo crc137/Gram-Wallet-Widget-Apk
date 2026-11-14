@@ -12,6 +12,7 @@
 
 package xyz.gramapple.wallet;
 import android.app.Activity;
+import android.app.NotificationManager;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Intent;
@@ -213,6 +214,8 @@ public class SettingsActivity extends Activity {
         Store.setNotifyEnabled(this, enabled);
         refreshNotifyTypes();
         if (enabled) {
+            NotificationManager nm = getSystemService(NotificationManager.class);
+            if (nm != null && !nm.areNotificationsEnabled()) {Toast.makeText(this, R.string.notifications_denied, Toast.LENGTH_LONG).show();}
             Notifications.ensureChannel(this);
             Notifications.schedule(this);
             Notifications.pollAsync(this);
@@ -381,6 +384,7 @@ public class SettingsActivity extends Activity {
                 Toast.makeText(this, R.string.wallet_active, Toast.LENGTH_SHORT).show();
             });
             remove.setOnClickListener(v -> {
+                GramWidgetProvider.removeForAddress(getApplicationContext(), addr);
                 Store.removeWallet(this, addr);
                 currentAddress = Store.getAddress(this);
                 addressInput.setText(currentAddress == null ? "" : currentAddress);

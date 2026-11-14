@@ -71,6 +71,21 @@ public class SlidePager extends ViewGroup {
         postInvalidateOnAnimation();
     }
 
+    public void removePageAt(int index) {
+        if (index < 0 || index >= getChildCount()) {return;}
+        scroller.abortAnimation();
+        removeViewAt(index);
+        if (page > index) {page--;}
+        page = Math.max(0, Math.min(Math.max(0, getChildCount() - 1), page));
+        requestLayout();
+        int w = getWidth();
+        if (w > 0) {scrollTo(page * w, 0);}
+        if (listener != null) {
+            listener.onScrollProgress(page);
+            listener.onPageSelected(page);
+        }
+    }
+
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
         int w = MeasureSpec.getSize(widthMeasureSpec);

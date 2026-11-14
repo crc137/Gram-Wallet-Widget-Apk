@@ -269,7 +269,7 @@ public class HistoryActivity extends Activity {
             return;
         }
         progressView.setVisibility(View.GONE);
-        moreButton.setVisibility(nextCursor == null ? View.GONE : View.VISIBLE);
+        moreButton.setVisibility(nextCursor != null && adapter.getCount() > 0 ? View.VISIBLE : View.GONE);
         if (adapter.getCount() == 0 && !loading) {
             statusView.setText(R.string.history_empty);
             statusView.setVisibility(View.VISIBLE);
@@ -375,7 +375,7 @@ public class HistoryActivity extends Activity {
                         statusView.setVisibility(View.VISIBLE);
                     } else {
                         Toast.makeText(appContext, R.string.history_error, Toast.LENGTH_SHORT).show();
-                        moreButton.setVisibility(nextCursor == null ? View.GONE : View.VISIBLE);
+                        moreButton.setVisibility(nextCursor != null && adapter.getCount() > 0 ? View.VISIBLE : View.GONE);
                     }
                 });
             }

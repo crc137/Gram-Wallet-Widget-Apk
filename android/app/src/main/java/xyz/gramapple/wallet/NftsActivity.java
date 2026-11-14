@@ -114,12 +114,12 @@ public class NftsActivity extends Activity {
                     if (!append) {adapter.clear();}
                     adapter.addAll(page.items);
                     nextCursor = page.next;
-                    moreButton.setVisibility(nextCursor == null ? View.GONE : View.VISIBLE);
+                    moreButton.setVisibility(nextCursor != null && adapter.getCount() > 0 ? View.VISIBLE : View.GONE);
                     if (adapter.getCount() == 0) {
                         statusView.setText(R.string.nfts_empty);
                         statusView.setVisibility(View.VISIBLE);
                     } else {statusView.setVisibility(View.GONE);}
-                    if (nextCursor != null) {load(nextCursor, true);}
+                    if (nextCursor != null && adapter.getCount() > 0) {load(nextCursor, true);}
                 });
             } catch (Exception error) {
                 runOnUiThread(() -> {
@@ -129,9 +129,10 @@ public class NftsActivity extends Activity {
                     if (adapter.getCount() == 0) {
                         statusView.setText(R.string.nfts_error);
                         statusView.setVisibility(View.VISIBLE);
+                        moreButton.setVisibility(View.GONE);
                     } else {
                         Toast.makeText(appContext, R.string.nfts_error, Toast.LENGTH_SHORT).show();
-                        moreButton.setVisibility(nextCursor == null ? View.GONE : View.VISIBLE);
+                        moreButton.setVisibility(nextCursor != null && adapter.getCount() > 0 ? View.VISIBLE : View.GONE);
                     }
                 });
             }

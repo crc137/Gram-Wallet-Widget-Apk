@@ -48,8 +48,55 @@ final class Store {
     private static final String KEY_CHART_DAYS = "chart_days";
     private static final String KEY_CACHE = "wallet_cache_json";
     private static final String KEY_WIDGET_MAP = "widget_map_json";
+    private static final String KEY_TASK_DONE = "task_done_";
+    private static final String KEY_TASKS_HIDDEN = "tasks_tab_hidden";
+    private static final String KEY_TASK_IDS = "task_ids_json";
+    private static final String KEY_TASKS_CACHE = "tasks_cache_json";
     private static final long FRESH_MS = 15L * 60L * 1000L;
     private Store() {}
+    static boolean isTaskDone(Context context, String id) {return id != null && preferences(context).getBoolean(KEY_TASK_DONE + id, false);}
+
+    static void setTaskDone(Context context, String id, boolean done) {
+        if (id == null || id.isEmpty()) {return;}
+        preferences(context).edit().putBoolean(KEY_TASK_DONE + id, done).apply();
+    }
+
+    static void saveTasksCache(Context context, String json) {
+        if (json == null) {return;}
+        preferences(context).edit().putString(KEY_TASKS_CACHE, json).apply();
+    }
+
+    static String loadTasksCache(Context context) {return preferences(context).getString(KEY_TASKS_CACHE, null);}
+
+    static void setTaskIds(Context context, java.util.List<String> ids) {
+        org.json.JSONArray arr = new org.json.JSONArray();
+        if (ids != null) {for (String id : ids) {if (id != null && !id.isEmpty()) {arr.put(id);}}}
+        preferences(context).edit().putString(KEY_TASK_IDS, arr.toString()).apply();
+    }
+
+    static java.util.List<String> getTaskIds(Context context) {
+        java.util.ArrayList<String> out = new java.util.ArrayList<>();
+        String raw = preferences(context).getString(KEY_TASK_IDS, null);
+        if (raw == null || raw.isEmpty()) {return out;}
+        try {
+            org.json.JSONArray arr = new org.json.JSONArray(raw);
+            for (int i = 0; i < arr.length(); i++) {
+                String id = arr.optString(i, "").trim();
+                if (!id.isEmpty()) {out.add(id);}
+            }
+        } catch (Exception ignored) {}
+        return out;
+    }
+
+    static boolean areAllTasksDone(Context context) {
+        java.util.List<String> ids = getTaskIds(context);
+        if (ids.isEmpty()) {return false;}
+        for (String id : ids) {if (!isTaskDone(context, id)) {return false;}}
+        return true;
+    }
+
+    static boolean isTasksTabHidden(Context context) {return preferences(context).getBoolean(KEY_TASKS_HIDDEN, false);}
+    static void setTasksTabHidden(Context context, boolean hidden) {preferences(context).edit().putBoolean(KEY_TASKS_HIDDEN, hidden).apply();}
 
     static final class WalletEntry {
         final String address;
@@ -153,6 +200,7 @@ final class Store {
         List<WalletEntry> next = new ArrayList<>();
         for (WalletEntry e : list) {if (!address.equals(e.address)) {next.add(e);}}
         saveWallets(context, next);
+        clearCacheForAddress(context, address);
         clearWidgetBindingsForAddress(context, address);
         if (address.equals(getAddress(context))) {
             if (next.isEmpty()) {clearAddress(context);}
@@ -199,6 +247,36 @@ final class Store {
         saveWidgetMap(context, map);
     }
 
+    static String peekWidgetAddress(Context context, int appWidgetId) {
+        if (appWidgetId <= 0) {return null;}
+        JSONObject map = widgetMap(context);
+        String key = Integer.toString(appWidgetId);
+        if (!map.has(key)) {return null;}
+        String bound = map.optString(key, "").trim();
+        return bound.isEmpty() ? null : bound;
+    }
+
+    static boolean isWidgetMarkedUnbound(Context context, int appWidgetId) {
+        if (appWidgetId <= 0) {return false;}
+        JSONObject map = widgetMap(context);
+        String key = Integer.toString(appWidgetId);
+        return map.has(key) && map.optString(key, "").trim().isEmpty();
+    }
+
+    static int[] widgetIdsForAddress(Context context, String address, int[] appWidgetIds) {
+        if (address == null || address.isEmpty() || appWidgetIds == null || appWidgetIds.length == 0) {return new int[0];}
+        boolean deletingActive = address.equals(getAddress(context));
+        java.util.ArrayList<Integer> hit = new java.util.ArrayList<>();
+        for (int id : appWidgetIds) {
+            if (isWidgetMarkedUnbound(context, id)) {continue;}
+            String bound = peekWidgetAddress(context, id);
+            if (address.equals(bound) || (bound == null && deletingActive)) {hit.add(id);}
+        }
+        int[] out = new int[hit.size()];
+        for (int i = 0; i < hit.size(); i++) {out[i] = hit.get(i);}
+        return out;
+    }
+
     static void clearWidgetBindingsForAddress(Context context, String address) {
         if (address == null || address.isEmpty()) {return;}
         JSONObject map = widgetMap(context);
@@ -206,8 +284,30 @@ final class Store {
         java.util.Iterator<String> keys = map.keys();
         while (keys.hasNext()) {
             String key = keys.next();
-            if (address.equals(map.optString(key, ""))) {try {map.put(key, ""); changed = true;} catch (Exception ignored) {}}}
+            if (address.equals(map.optString(key, ""))) {try {map.put(key, ""); changed = true;} catch (Exception ignored) {}}
+        }
         if (changed) {saveWidgetMap(context, map);}
+    }
+
+    static void markWidgetsUnbound(Context context, int[] appWidgetIds) {
+        if (appWidgetIds == null || appWidgetIds.length == 0) {return;}
+        JSONObject map = widgetMap(context);
+        boolean changed = false;
+        for (int id : appWidgetIds) {
+            if (id <= 0) {continue;}
+            try {map.put(Integer.toString(id), ""); changed = true;} catch (Exception ignored) {}
+        }
+        if (changed) {saveWidgetMap(context, map);}
+    }
+
+    static void clearCacheForAddress(Context context, String address) {
+        if (address == null || address.isEmpty()) {return;}
+        try {
+            JSONObject all = cacheRoot(context);
+            if (!all.has(address)) {return;}
+            all.remove(address);
+            preferences(context).edit().putString(KEY_CACHE, all.toString()).apply();
+        } catch (Exception ignored) {}
     }
 
     static java.util.LinkedHashSet<String> getWidgetAddresses(Context context, int[] appWidgetIds) {
