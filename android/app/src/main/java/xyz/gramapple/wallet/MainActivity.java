@@ -192,7 +192,7 @@ public class MainActivity extends Activity {
         if (Store.wantsAnyNotify(this)) {Notifications.ensureChannel(this); Notifications.schedule(this);}
         cardView.setOnQrClickListener(this::showReceiveQr);
         cardView.setOnMassClickListener(this::onMassTap);
-        cardView.setOnCardTapListener(() -> {if (cardStack != null) {cardStack.cycleNext();}});
+        cardView.setOnCardTapListener(() -> {if (cardStack != null) {cardStack.onFrontTap();}});
         showVersion();
         syncFromStore(false);
         GramWidgetProvider.renderAll(getApplicationContext());
@@ -249,7 +249,7 @@ public class MainActivity extends Activity {
         if (cardView == null) {return;}
         cardView.setOnQrClickListener(this::showReceiveQr);
         cardView.setOnMassClickListener(this::onMassTap);
-        cardView.setOnCardTapListener(() -> {if (cardStack != null) {cardStack.cycleNext();}});
+        cardView.setOnCardTapListener(() -> {if (cardStack != null) {cardStack.onFrontTap();}});
     }
 
     private void applyWalletSwitch(String address) {
@@ -266,23 +266,30 @@ public class MainActivity extends Activity {
                 updatedView.setVisibility(View.VISIBLE);
             }
             statusView.setVisibility(View.GONE);
+            bind(cached);
         }
         todayFp = "";
-        loadToday(true);
-        loadChart(true);
-        if (!Store.isFresh(this, address)) {refreshQuiet(address);}
+        final String addr = address;
+        View root = findViewById(android.R.id.content);
+        Runnable defer = () -> {
+            if (isFinishing() || !addr.equals(currentAddress)) {return;}
+            loadToday(true);
+            loadChart(true);
+            if (!Store.isFresh(this, addr)) {refreshQuiet(addr);}
+        };
+        if (root != null) {root.post(defer);} else {runOnUiThread(defer);}
     }
 
     private void bindWalletCard(WalletCardView view, String address) {
         if (view == null || address == null) {return;}
         WalletData data = Store.loadCache(this, address);
         CardDecor decor = Store.loadCardCache(this, address);
-        if (data == null && (decor == null || decor.isEmpty())) {return;}
-        String bal = data != null ? Format.shortGram(data.gram) : null;
-        String usd = data != null ? (data.hasUsd ? Format.usd(data.totalUsd) : "—") : null;
-        view.apply(bal, usd, address, decor != null && !decor.isEmpty() ? decor : null);
+        if (decor == null || decor.isEmpty()) {decor = CardDecor.EMPTY;}
+        String bal = data != null ? Format.shortGram(data.gram) : "—";
+        String usd = data != null && data.hasUsd ? Format.usd(data.totalUsd) : "—";
+        view.bindWallet(address, bal, usd, decor);
         view.setLoading(false);
-        if (decor != null && !decor.isEmpty()) {maybePreloadGifts(address, decor);}
+        if (!decor.isEmpty()) {maybePreloadGifts(address, decor);}
     }
 
     private void maybePreloadGifts(String address, CardDecor decor) {

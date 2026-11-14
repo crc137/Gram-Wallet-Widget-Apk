@@ -67,9 +67,29 @@ final class Store {
         return address.isEmpty() ? null : address;
     }
 
-    static void setAddress(Context context, String address) {
+    static final int FREE_WALLET_LIMIT = 3;
+
+    static boolean hasDonorAccess(Context context) {
+        if (isDonor(context)) {return true;}
+        for (WalletEntry e : getWallets(context)) {if (isDonorFor(context, e.address)) {return true;}}
+        return false;
+    }
+
+    static boolean canAddWallet(Context context) {
+        if (hasDonorAccess(context)) {return true;}
+        return readWalletsRaw(context).size() < FREE_WALLET_LIMIT;
+    }
+
+    static boolean setAddress(Context context, String address) {
+        if (address != null && !address.trim().isEmpty()) {
+            String normalized = address.trim();
+            if (!isWalletKnown(context, normalized) && !canAddWallet(context)) {return false;}
+            preferences(context).edit().putString(KEY_ADDRESS, normalized).remove(KEY_DATA_ADDRESS).remove(KEY_GRAM).remove(KEY_USD).remove(KEY_HAS_USD).remove(KEY_CHANGE).remove(KEY_UPDATED).remove(KEY_ERROR).remove(KEY_CARD).remove(KEY_CARD_ADDRESS).remove(KEY_NOTIFY_BASELINE).remove(KEY_NOTIFY_BASELINE_SET).remove(KEY_DONOR).remove(KEY_DONOR_ADDRESS).apply();
+            upsertWallet(context, normalized, null);
+            return true;
+        }
         preferences(context).edit().putString(KEY_ADDRESS, address).remove(KEY_DATA_ADDRESS).remove(KEY_GRAM).remove(KEY_USD).remove(KEY_HAS_USD).remove(KEY_CHANGE).remove(KEY_UPDATED).remove(KEY_ERROR).remove(KEY_CARD).remove(KEY_CARD_ADDRESS).remove(KEY_NOTIFY_BASELINE).remove(KEY_NOTIFY_BASELINE_SET).remove(KEY_DONOR).remove(KEY_DONOR_ADDRESS).apply();
-        if (address != null && !address.trim().isEmpty()) {upsertWallet(context, address, null);}
+        return true;
     }
     static void clearAddress(Context context) {preferences(context).edit().remove(KEY_ADDRESS).remove(KEY_DATA_ADDRESS).remove(KEY_GRAM).remove(KEY_USD).remove(KEY_HAS_USD).remove(KEY_CHANGE).remove(KEY_UPDATED).remove(KEY_ERROR).remove(KEY_CARD).remove(KEY_CARD_ADDRESS).remove(KEY_NOTIFY_BASELINE).remove(KEY_NOTIFY_BASELINE_SET).remove(KEY_DONOR).remove(KEY_DONOR_ADDRESS).apply();}
 
@@ -103,17 +123,20 @@ final class Store {
         return out;
     }
 
-    static void upsertWallet(Context context, String address, String label) {
-        if (address == null || address.trim().isEmpty()) {return;}
+    static boolean upsertWallet(Context context, String address, String label) {
+        if (address == null || address.trim().isEmpty()) {return false;}
         address = address.trim();
         List<WalletEntry> list = readWalletsRaw(context);
         String keep = label;
+        boolean known = false;
         for (WalletEntry e : list) {
             if (address.equals(e.address)) {
+                known = true;
                 if (keep == null || keep.trim().isEmpty()) {keep = e.label;}
                 break;
             }
         }
+        if (!known && !hasDonorAccess(context) && list.size() >= FREE_WALLET_LIMIT) {return false;}
         if (keep == null || keep.trim().isEmpty()) {keep = "Wallet " + (list.size() + 1);}
         List<WalletEntry> next = new ArrayList<>();
         next.add(new WalletEntry(address, keep));
@@ -121,6 +144,7 @@ final class Store {
             if (!address.equals(e.address)) {next.add(e);}
         }
         saveWallets(context, next);
+        return true;
     }
 
     static void removeWallet(Context context, String address) {
@@ -211,13 +235,14 @@ final class Store {
         } catch (Exception ignored) {return false;}
     }
 
-    static void selectWallet(Context context, String address) {
-        if (address == null || address.trim().isEmpty()) {return;}
+    static boolean selectWallet(Context context, String address) {
+        if (address == null || address.trim().isEmpty()) {return false;}
         address = address.trim();
         upsertWallet(context, address, null);
         SharedPreferences.Editor ed = preferences(context).edit().putString(KEY_ADDRESS, address).remove(KEY_ERROR).remove(KEY_NOTIFY_BASELINE).remove(KEY_NOTIFY_BASELINE_SET);
         restoreActiveFromCache(context, ed, address);
         ed.apply();
+        return true;
     }
 
     static boolean isFresh(Context context, String address) {

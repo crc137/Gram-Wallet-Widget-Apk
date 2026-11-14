@@ -16,12 +16,15 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BlurMaskFilter;
 import android.graphics.Canvas;
+import android.graphics.Outline;
 import android.graphics.Paint;
 import android.graphics.RectF;
 import android.util.AttributeSet;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewOutlineProvider;
 import android.view.animation.LinearInterpolator;
+import android.view.animation.PathInterpolator;
 
 public class WalletCardView extends View {
     public interface OnQrClickListener {void onQrClick();}
@@ -44,7 +47,11 @@ public class WalletCardView extends View {
     private final RectF loadRect = new RectF();
     private boolean loading;
     private float loadPulse;
+    private float contentAlpha = 1f;
+    private float loadFade = 0f;
     private ValueAnimator loadAnim;
+    private ValueAnimator fadeAnim;
+    private final PathInterpolator fadeEase = new PathInterpolator(0.22f, 1f, 0.36f, 1f);
     private int loadColor = 0xFF0088FF;
 
     public WalletCardView(Context context) {
@@ -65,6 +72,15 @@ public class WalletCardView extends View {
     private void init() {
         setLayerType(LAYER_TYPE_SOFTWARE, null);
         setWillNotDraw(false);
+        setClipToOutline(true);
+        setOutlineProvider(new ViewOutlineProvider() {
+            @Override public void getOutline(View view, Outline outline) {
+                int w = view.getWidth();
+                int h = view.getHeight();
+                if (w <= 0 || h <= 0) {outline.setEmpty(); return;}
+                outline.setRoundRect(0, 0, w, h, w * 0.02875f);
+            }
+        });
         glowPaint.setColor(0x990060E6);
         glowPaint.setMaskFilter(new BlurMaskFilter(dp(9f), BlurMaskFilter.Blur.NORMAL));
         loadBlurPaint.setMaskFilter(new BlurMaskFilter(dp(28f), BlurMaskFilter.Blur.NORMAL));
@@ -79,14 +95,29 @@ public class WalletCardView extends View {
     }
 
     public void setDecor(CardDecor decor) {apply(this.balance, this.usd, this.address, decor, true);}
-    public void apply(String balance, String usd, String address, CardDecor decor) {apply(balance, usd, address, decor, decor != null);}
+    public void apply(String balance, String usd, String address, CardDecor decor) {apply(balance, usd, address, decor, true);}
+    public void bindWallet(String address, String balance, String usd, CardDecor decor) {
+        this.balance = balance == null ? "—" : balance;
+        this.usd = usd == null ? "—" : usd;
+        this.address = address == null ? "" : address;
+        this.decor = decor == null ? CardDecor.EMPTY : decor;
+        if (this.decor.background != null) {
+            glowPaint.setColor((this.decor.background.edgeColor & 0x00FFFFFF) | 0x99000000);
+            loadColor = this.decor.background.centerColor | 0xFF000000;
+        } else {
+            glowPaint.setColor(0x990060E6);
+            loadColor = 0xFF0088FF;
+        }
+        if (!loading) {rebuild();} else {invalidate();}
+    }
     public void refreshArt() {if (!loading) {rebuild();}}
 
     private void apply(String balance, String usd, String address, CardDecor decor, boolean replaceDecor) {
         String nextBalance = balance == null ? this.balance : balance;
         String nextUsd = usd == null ? this.usd : usd;
         String nextAddress = address == null ? this.address : address;
-        CardDecor nextDecor = replaceDecor ? (decor == null ? CardDecor.EMPTY : decor) : this.decor;
+        boolean addressChanged = !nextAddress.equals(this.address);
+        CardDecor nextDecor = (replaceDecor || addressChanged) ? (decor == null ? CardDecor.EMPTY : decor) : this.decor;
         if (nextDecor == null) {nextDecor = CardDecor.EMPTY;}
         boolean same = nextBalance.equals(this.balance) && nextUsd.equals(this.usd) && nextAddress.equals(this.address) && sameDecor(this.decor, nextDecor);
         this.balance = nextBalance;
@@ -120,11 +151,15 @@ public class WalletCardView extends View {
         this.loading = loading;
         if (loading) {
             if (decor.background != null) {loadColor = decor.background.centerColor | 0xFF000000;}
+            cancelFade();
+            contentAlpha = 0f;
+            loadFade = 1f;
             startLoadAnim();
             invalidate();
         } else {
             stopLoadAnim();
             rebuild();
+            fadeInContent(true);
         }
     }
 
@@ -159,11 +194,31 @@ public class WalletCardView extends View {
         if (width <= 0) {return;}
         Bitmap next = CardArt.render(getContext(), width, balance, usd, address, decor);
         Bitmap old = bitmap;
+        boolean soft = old != null && next != null && !loading;
         bitmap = next;
         updateQrRect(width, Math.round(width * CardArt.CARD_HEIGHT_RATIO));
-        invalidate();
+        if (soft) {fadeInContent(false);} else {invalidate();}
         if (old != null && old != next) {post(() -> {if (!old.isRecycled()) {old.recycle();}});}
     }
+
+    private void fadeInContent(boolean fromLoading) {
+        cancelFade();
+        float start = fromLoading ? 0f : Math.max(0.35f, contentAlpha);
+        contentAlpha = start;
+        loadFade = fromLoading ? 1f : 0f;
+        fadeAnim = ValueAnimator.ofFloat(0f, 1f);
+        fadeAnim.setDuration(fromLoading ? 420L : 280L);
+        fadeAnim.setInterpolator(fadeEase);
+        fadeAnim.addUpdateListener(a -> {
+            float t = (float) a.getAnimatedValue();
+            contentAlpha = start + (1f - start) * t;
+            if (fromLoading) {loadFade = 1f - t;}
+            invalidate();
+        });
+        fadeAnim.start();
+    }
+
+    private void cancelFade() {if (fadeAnim != null) {fadeAnim.cancel(); fadeAnim = null;}}
 
     private void updateQrRect(int width, int height) {
         float q = width / 100f;
@@ -175,6 +230,7 @@ public class WalletCardView extends View {
     @Override
     protected void onSizeChanged(int w, int h, int oldw, int oldh) {
         super.onSizeChanged(w, h, oldw, oldh);
+        invalidateOutline();
         if (w > 0 && !loading) {rebuild();}
     }
 
@@ -197,42 +253,48 @@ public class WalletCardView extends View {
         glowRect.inset(getWidth() * 0.015f, getHeight() * 0.02f);
         glowRect.offset(0f, getHeight() * 0.028f);
         canvas.drawRoundRect(glowRect, radius * 0.95f, radius * 0.95f, glowPaint);
-        if (loading) {
-            drawLoading(canvas, radius);
-            return;
-        }
+        if (loading || loadFade > 0.01f) {drawLoading(canvas, radius);}
+        if (loading && loadFade >= 0.99f) {return;}
         if (bitmap == null) {
             rebuild();
             if (bitmap == null) {return;}
         }
-        canvas.drawBitmap(bitmap, 0f, 0f, null);
+        int alpha = Math.round(255f * Math.max(0f, Math.min(1f, contentAlpha)));
+        loadPaint.setAlpha(alpha);
+        canvas.drawBitmap(bitmap, 0f, 0f, loadPaint);
+        loadPaint.setAlpha(255);
     }
 
     private void drawLoading(Canvas canvas, float radius) {
+        float fade = loading ? 1f : Math.max(0f, Math.min(1f, loadFade));
         loadRect.set(0f, 0f, getWidth(), getHeight());
         loadPaint.setColor(loadColor);
+        loadPaint.setAlpha(Math.round(255f * fade));
         canvas.drawRoundRect(loadRect, radius, radius, loadPaint);
+        loadPaint.setAlpha(255);
         float w = getWidth();
         float h = getHeight();
         float t = loadPulse;
         float wave = (float) Math.sin(t * Math.PI * 2.0);
+        int a66 = Math.round(0x66 * fade);
+        int a44 = Math.round(0x44 * fade);
         int light = mixWhite(loadColor, 0.42f + 0.18f * wave);
-        loadBlurPaint.setColor((light & 0x00FFFFFF) | 0x66000000);
+        loadBlurPaint.setColor((light & 0x00FFFFFF) | (a66 << 24));
         float cx = w * (0.28f + 0.44f * t);
         float cy = h * (0.35f + 0.12f * wave);
         canvas.drawCircle(cx, cy, Math.min(w, h) * 0.38f, loadBlurPaint);
-        loadBlurPaint.setColor((mixWhite(loadColor, 0.55f) & 0x00FFFFFF) | 0x44000000);
+        loadBlurPaint.setColor((mixWhite(loadColor, 0.55f) & 0x00FFFFFF) | (a44 << 24));
         canvas.drawCircle(w * (0.72f - 0.3f * t), h * 0.68f, Math.min(w, h) * 0.28f, loadBlurPaint);
-        loadPaint.setColor(0x66FFFFFF);
         float barW = w * 0.34f;
         float barH = Math.max(dp(4f), h * 0.028f);
         float barX = (w - barW) * 0.5f;
         float barY = h * 0.78f;
-        loadPaint.setColor(0x33FFFFFF);
+        loadPaint.setColor((0x33FFFFFF & 0x00FFFFFF) | (Math.round(0x33 * fade) << 24));
         canvas.drawRoundRect(barX, barY, barX + barW, barY + barH, barH, barH, loadPaint);
         float fill = barW * (0.22f + 0.56f * t);
-        loadPaint.setColor(0xCCFFFFFF);
+        loadPaint.setColor((0xCCFFFFFF & 0x00FFFFFF) | (Math.round(0xCC * fade) << 24));
         canvas.drawRoundRect(barX, barY, barX + fill, barY + barH, barH, barH, loadPaint);
+        loadPaint.setAlpha(255);
     }
 
     private static int mixWhite(int color, float amount) {
@@ -249,6 +311,7 @@ public class WalletCardView extends View {
     @Override
     protected void onDetachedFromWindow() {
         stopLoadAnim();
+        cancelFade();
         super.onDetachedFromWindow();
     }
 

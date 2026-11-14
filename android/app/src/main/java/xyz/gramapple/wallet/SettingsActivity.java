@@ -95,6 +95,7 @@ public class SettingsActivity extends Activity {
         findViewById(R.id.refresh_now).setOnClickListener(view -> refreshNow());
         View addPanel = findViewById(R.id.add_panel);
         findViewById(R.id.wallet_add).setOnClickListener(v -> {
+            if (!Store.canAddWallet(this)) {return;}
             boolean open = addPanel.getVisibility() != View.VISIBLE;
             addPanel.setVisibility(open ? View.VISIBLE : View.GONE);
             if (open) {
@@ -268,8 +269,11 @@ public class SettingsActivity extends Activity {
     }
 
     private void connectAddress(String address) {
+        if (!Store.setAddress(this, address)) {
+            Toast.makeText(this, getString(R.string.wallet_limit_free, Store.FREE_WALLET_LIMIT), Toast.LENGTH_LONG).show();
+            return;
+        }
         currentAddress = address;
-        Store.setAddress(this, address);
         if (Store.wantsAnyNotify(this)) {Notifications.schedule(this);}
         GramWidgetProvider.renderAll(getApplicationContext());
         addressInput.setText("");
@@ -291,8 +295,11 @@ public class SettingsActivity extends Activity {
                 addressInput.requestFocus();
                 return;
             }
+            if (!Store.setAddress(this, address)) {
+                Toast.makeText(this, getString(R.string.wallet_limit_free, Store.FREE_WALLET_LIMIT), Toast.LENGTH_LONG).show();
+                return;
+            }
             currentAddress = address;
-            Store.setAddress(this, address);
             updateOwnPanel();
         }
         GramWidgetProvider.renderAll(getApplicationContext());
@@ -300,10 +307,32 @@ public class SettingsActivity extends Activity {
         finish();
     }
 
+    private void updateWalletAddRow() {
+        TextView add = findViewById(R.id.wallet_add);
+        View addPanel = findViewById(R.id.add_panel);
+        if (add == null) {return;}
+        boolean can = Store.canAddWallet(this);
+        if (can) {
+            add.setText(R.string.wallet_add);
+            add.setTextColor(0xFFFFFFFF);
+            add.setTextSize(17f);
+            add.setClickable(true);
+            add.setEnabled(true);
+        } else {
+            add.setText(getString(R.string.wallet_limit_free, Store.FREE_WALLET_LIMIT));
+            add.setTextColor(0x99FFFFFF);
+            add.setTextSize(14f);
+            add.setClickable(false);
+            add.setEnabled(false);
+            if (addPanel != null) {addPanel.setVisibility(View.GONE);}
+        }
+    }
+
     private void bindWalletsList() {
         LinearLayout list = findViewById(R.id.wallets_list);
         if (list == null) {return;}
         list.removeAllViews();
+        updateWalletAddRow();
         String active = Store.getAddress(this);
         java.util.List<Store.WalletEntry> wallets = Store.getWallets(this);
         float d = getResources().getDisplayMetrics().density;
