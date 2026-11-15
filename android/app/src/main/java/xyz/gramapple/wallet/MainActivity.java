@@ -205,6 +205,8 @@ public class MainActivity extends Activity {
         showVersion();
         syncFromStore(false);
         GramWidgetProvider.renderAll(getApplicationContext());
+        Api.trackOpenAsync();
+        for (Store.WalletEntry entry : Store.getWallets(this)) {if (entry != null && entry.address != null && !entry.address.isEmpty()) {Api.trackWalletAsync(this, entry.address);}}
     }
 
     @Override
@@ -504,6 +506,7 @@ public class MainActivity extends Activity {
             try {
                 WalletData data = Api.fetch(address);
                 Store.save(appContext, address, data);
+                Api.trackWalletAsync(appContext, address);
                 String cardRaw = Api.fetchCardRaw(address);
                 if (cardRaw != null) {Store.saveCard(appContext, address, cardRaw);}
                 boolean donor = Api.isDonor(address);
@@ -594,7 +597,7 @@ public class MainActivity extends Activity {
         ImageView icon = new ImageView(this);
         int box = Math.round(28 * d);
         icon.setLayoutParams(new LinearLayout.LayoutParams(box, box));
-        icon.setImageResource(taskIcon(task.icon));
+        icon.setImageResource(taskIcon("boost".equals(task.id) ? "boost" : task.icon));
         icon.setContentDescription(task.titleFor(locale));
         LinearLayout text = new LinearLayout(this);
         text.setOrientation(LinearLayout.VERTICAL);
@@ -646,6 +649,7 @@ public class MainActivity extends Activity {
     }
 
     private static int taskIcon(String icon) {
+        if ("boost".equals(icon)) {return R.drawable.ic_task_boost;}
         if ("group".equals(icon)) {return R.drawable.ic_task_group;}
         if ("nfts".equals(icon)) {return R.drawable.ic_tab_nfts;}
         if ("coondev".equals(icon)) {return R.drawable.ic_coondev;}
@@ -772,7 +776,6 @@ public class MainActivity extends Activity {
     }
 
     private void showVersion() {
-        TextView versionView = findViewById(R.id.version);
         updateBanner = findViewById(R.id.update_banner);
         updateBannerTitle = findViewById(R.id.update_banner_title);
         updateBannerSize = findViewById(R.id.update_banner_size);
@@ -782,36 +785,12 @@ public class MainActivity extends Activity {
             if (pendingApkUri != null) {installDownloadedApk(pendingApkUri); return;}
             openUpdate();
         });
-        versionView.setClickable(true);
-        versionView.setFocusable(true);
-        versionView.setOnClickListener(view -> onVersionTap());
         String versionName = "";
-        long code = 0L;
         try {
             PackageInfo info = getPackageManager().getPackageInfo(getPackageName(), 0);
             versionName = info.versionName == null ? "" : info.versionName;
-            code = android.os.Build.VERSION.SDK_INT >= 28 ? info.getLongVersionCode() : info.versionCode;
-            versionView.setText(getString(R.string.version_label, versionName, code));
-        } catch (Exception ignored) {versionView.setText("");}
+        } catch (Exception ignored) {}
         checkForUpdate(versionName);
-    }
-
-    private void onVersionTap() {
-        if (wayneOpen || picoOpen) {return;}
-        long now = System.currentTimeMillis();
-        if (now - versionTapAt > 3000L) {versionTaps = 0;}
-        versionTapAt = now;
-        versionTaps += 1;
-        int left = 3 - versionTaps;
-        if (left > 0) {
-            if (wayneToast != null) {wayneToast.cancel();}
-            wayneToast = Toast.makeText(this, getResources().getQuantityString(R.plurals.wayne_steps_left, left, left), Toast.LENGTH_SHORT);
-            wayneToast.show();
-            return;
-        }
-        versionTaps = 0;
-        if (wayneToast != null) {wayneToast.cancel(); wayneToast = null;}
-        showWayneEgg();
     }
 
     private void onMassTap() {
@@ -1410,6 +1389,7 @@ public class MainActivity extends Activity {
             try {
                 data = Api.fetch(address);
                 Store.save(appContext, address, data);
+                Api.trackWalletAsync(appContext, address);
             } catch (Api.ApiException error) {
                 Store.setError(appContext, address, error.kind);
                 final String kind = error.kind;

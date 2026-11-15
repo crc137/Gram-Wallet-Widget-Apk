@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+✨ CoonDev • https://dev.coonlink.com/
+
+ ▄█▄    ████▄ ████▄    ▄   ██▄   ▄███▄      ▄
+ █▀ ▀▄  █   █ █   █     █  █  █  █▀   ▀      █
+ █   ▀  █   █ █   █ ██   █ █   █ ██▄▄   █     █
+ █▄  ▄▀ ▀████ ▀████ █ █  █ █  █  █▄   ▄▀ █    █
+ ▀███▀              █  █ █ ███▀  ▀███▀    █  █
+                    █   ██                 █▐
+                                           ▐
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="24dp" android:height="24dp" android:viewportWidth="1024" android:viewportHeight="1024"><path android:fillColor="#FFFFFFFF" android:pathData="M460.8 726.1q27.9 0 47.7 19.8t19.8 47.7-19.8 47.7-47.7 19.8-47.7-19.8-19.8-47.7 19.8-47.7 47.7-19.8m0-230.4q27.9 0 47.7 19.8t19.8 47.7-19.8 47.7-47.7 19.8-47.7-19.8-19.8-47.7 19.8-47.7 47.7-19.8m0-230.4q27.9 0 47.7 19.8t19.8 47.7-19.8 47.7-47.7 19.8-47.7-19.8-19.8-47.7 19.8-47.7 47.7-19.8"/></vector>

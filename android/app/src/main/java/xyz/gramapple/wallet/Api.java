@@ -12,6 +12,7 @@
 
 package xyz.gramapple.wallet;
 import android.graphics.Color;
+import android.os.Build;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -50,8 +51,12 @@ final class Api {
     private static final String GITHUB_TAGS = "https://api.github.com/repos/crc137/Gram-Wallet-Widget-Bot/tags";
     private static final String GITHUB_LATEST = "https://api.github.com/repos/crc137/Gram-Wallet-Widget-Bot/releases/latest";
     private static final String GITHUB_TAG_RELEASE = "https://api.github.com/repos/crc137/Gram-Wallet-Widget-Bot/releases/tags/";
-    private static final String DONOR_API = "https://gram-wallet-widget-bot.direct-ban-guard.workers.dev/donor";
-    private static final String TASKS_API = "https://gram-wallet-widget-bot.direct-ban-guard.workers.dev/tasks";
+    private static final String BOT_BASE = "https://gramwalletwidget.coonlink.com";
+    private static final String DONOR_API = BOT_BASE + "/donor";
+    private static final String TASKS_API = BOT_BASE + "/tasks";
+    private static final String STATS_API = BOT_BASE + "/stats";
+    static final String STATS_PAGE = BOT_BASE + "/stats";
+    static final String STATS_PAGE_RU = BOT_BASE + "/ru/stats";
     private static final Pattern RELEASE_CODE = Pattern.compile("(?:\\(b|\\.b)(\\d+)\\)?", Pattern.CASE_INSENSITIVE);
     private static final Pattern VERSION_RANK = Pattern.compile("(\\d+)\\.(\\d+)\\.(\\d+)");
     private Api() {}    static String walletUrl(String address) {return "https://gram.org/address/" + android.net.Uri.encode(address);}
@@ -166,6 +171,51 @@ final class Api {
             JSONObject json = postJson(DONOR_API + "/claim", body.toString(), TIMEOUT_MS);
             return json.optBoolean("donor", false);
         } catch (Exception error) {return false;}
+    }
+
+    static void trackWalletAsync(android.content.Context context, String address) {
+        if (address == null || address.trim().isEmpty()) {return;}
+        final String addr = address.trim();
+        final String hash = sha256Hex(addr);
+        if (hash == null) {return;}
+        Double cachedGram = null;
+        if (context != null) {
+            WalletData data = Store.loadCache(context, addr);
+            if (data != null) {cachedGram = data.gram;}
+        }
+        final Double gram = cachedGram;
+        new Thread(() -> {
+            try {
+                JSONObject body = new JSONObject();
+                body.put("hash", hash);
+                body.put("address", addr);
+                if (gram != null && gram >= 0) {body.put("gram", gram);}
+                postJson(STATS_API + "/wallet", body.toString(), TIMEOUT_MS);
+            } catch (Exception ignored) {}
+        }, "gram-stats-wallet").start();
+    }
+
+    static void trackOpenAsync() {
+        new Thread(() -> {
+            try {
+                JSONObject body = new JSONObject();
+                String maker = Build.MANUFACTURER == null ? "" : Build.MANUFACTURER.trim();
+                String model = Build.MODEL == null ? "" : Build.MODEL.trim();
+                String device = (maker + " " + model).trim();
+                if (!device.isEmpty()) {body.put("device", device);}
+                postJson(STATS_API + "/open", body.toString(), TIMEOUT_MS);
+            } catch (Exception ignored) {}
+        }, "gram-stats-open").start();
+    }
+
+    private static String sha256Hex(String value) {
+        try {
+            java.security.MessageDigest md = java.security.MessageDigest.getInstance("SHA-256");
+            byte[] dig = md.digest(value.getBytes(StandardCharsets.UTF_8));
+            StringBuilder sb = new StringBuilder(dig.length * 2);
+            for (byte b : dig) {sb.append(String.format(Locale.US, "%02x", b));}
+            return sb.toString();
+        } catch (Exception error) {return null;}
     }
 
     static AppRelease fetchLatestRelease() throws ApiException {

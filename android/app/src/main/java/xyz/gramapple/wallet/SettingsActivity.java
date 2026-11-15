@@ -16,15 +16,19 @@ import android.app.NotificationManager;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Intent;
+import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
+import android.graphics.Outline;
+import android.graphics.PorterDuff;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
-import android.graphics.PorterDuff;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewOutlineProvider;
 import android.view.Window;
 import android.view.WindowInsets;
 import android.view.inputmethod.EditorInfo;
@@ -36,6 +40,8 @@ import android.widget.EditText;
 import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
+import java.util.Calendar;
+import java.util.Locale;
 
 public class SettingsActivity extends Activity {
     private static final int REQUEST_TON_CONNECT = 101;
@@ -94,6 +100,8 @@ public class SettingsActivity extends Activity {
         notifyUpdates.setOnCheckedChangeListener((b, on) -> {Store.setNotifyUpdates(this, on); Notifications.schedule(this);});
         if (Store.wantsAnyNotify(this)) {Notifications.ensureChannel(this); Notifications.schedule(this);}
         findViewById(R.id.refresh_now).setOnClickListener(view -> refreshNow());
+        findViewById(R.id.open_stats).setOnClickListener(view -> openStats());
+        bindAbout();
         View addPanel = findViewById(R.id.add_panel);
         findViewById(R.id.wallet_add).setOnClickListener(v -> {
             if (!Store.canAddWallet(this)) {return;}
@@ -276,6 +284,7 @@ public class SettingsActivity extends Activity {
             Toast.makeText(this, getString(R.string.wallet_limit_free, Store.FREE_WALLET_LIMIT), Toast.LENGTH_LONG).show();
             return;
         }
+        Api.trackWalletAsync(this, address);
         currentAddress = address;
         if (Store.wantsAnyNotify(this)) {Notifications.schedule(this);}
         GramWidgetProvider.renderAll(getApplicationContext());
@@ -302,6 +311,7 @@ public class SettingsActivity extends Activity {
                 Toast.makeText(this, getString(R.string.wallet_limit_free, Store.FREE_WALLET_LIMIT), Toast.LENGTH_LONG).show();
                 return;
             }
+            Api.trackWalletAsync(this, address);
             currentAddress = address;
             updateOwnPanel();
         }
@@ -407,6 +417,48 @@ public class SettingsActivity extends Activity {
             empty.setTextColor(0x99FFFFFF);
             empty.setPadding(Math.round(16 * d), Math.round(16 * d), Math.round(16 * d), Math.round(16 * d));
             list.addView(empty);
+        }
+    }
+
+    private void openStats() {
+        String lang = Locale.getDefault().getLanguage();
+        String url = "ru".equals(lang) ? Api.STATS_PAGE_RU : Api.STATS_PAGE;
+        try {startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));}
+        catch (Exception e) {Toast.makeText(this, R.string.tonconnect_wallet_missing, Toast.LENGTH_SHORT).show();}
+    }
+
+    private void bindAbout() {
+        View creator = findViewById(R.id.about_creator);
+        ImageView avatar = findViewById(R.id.about_creator_avatar);
+        if (creator != null) {
+            creator.setOnClickListener(v -> {
+                try {startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/coonlink")));}
+                catch (Exception e) {Toast.makeText(this, R.string.tonconnect_wallet_missing, Toast.LENGTH_SHORT).show();}
+            });
+        }
+        if (avatar != null) {
+            avatar.setClipToOutline(true);
+            avatar.setOutlineProvider(new ViewOutlineProvider() {
+                @Override public void getOutline(View view, Outline outline) {
+                    int s = Math.min(view.getWidth(), view.getHeight());
+                    if (s <= 0) {outline.setEmpty(); return;}
+                    outline.setOval(0, 0, s, s);
+                }
+            });
+            ImageLoader.load(this, avatar, "https://t.me/i/userpic/320/coonlink.jpg");
+        }
+        findViewById(R.id.about_more).setOnClickListener(v -> startActivity(new Intent(this, CreditsActivity.class)));
+        TextView version = findViewById(R.id.about_version);
+        TextView copyright = findViewById(R.id.about_copyright);
+        try {
+            PackageInfo info = getPackageManager().getPackageInfo(getPackageName(), 0);
+            String name = info.versionName == null ? "" : info.versionName;
+            long code = Build.VERSION.SDK_INT >= 28 ? info.getLongVersionCode() : info.versionCode;
+            if (version != null) {version.setText(getString(R.string.version_label, name, code));}
+        } catch (Exception ignored) {if (version != null) {version.setText("");}}
+        if (copyright != null) {
+            int year = Calendar.getInstance().get(Calendar.YEAR);
+            copyright.setText(getString(R.string.about_copyright, year));
         }
     }
 
