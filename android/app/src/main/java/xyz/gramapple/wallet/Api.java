@@ -36,7 +36,7 @@ final class Api {
     static final String ERROR_TLS = "tls";
     static final String ERROR_SERVER = "server";
     static final String ERROR_BAD_RESPONSE = "bad_response";
-    private static final String USER_AGENT = "GramWallet/26.1.7 (Android)";
+    private static final String USER_AGENT = "GramWalletWidget (Android)";
     private static final int TIMEOUT_MS = 7000;
     private static final int BALANCE_ATTEMPTS = 2;
     private static final String TONAPI_ACCOUNT = "https://tonapi.io/v2/accounts/";
@@ -60,11 +60,7 @@ final class Api {
         if (value == null || value.isEmpty()) {return 0L;}
         Matcher matcher = VERSION_RANK.matcher(value);
         if (!matcher.find()) {return 0L;}
-        try {
-            return Long.parseLong(matcher.group(1)) * 1_000_000L
-                + Long.parseLong(matcher.group(2)) * 1_000L
-                + Long.parseLong(matcher.group(3));
-        } catch (NumberFormatException error) {return 0L;}
+        try {return Long.parseLong(matcher.group(1)) * 1_000_000L+ Long.parseLong(matcher.group(2)) * 1_000L+ Long.parseLong(matcher.group(3));} catch (NumberFormatException error) {return 0L;}
     }
 
     static long releaseRank(AppRelease release) {

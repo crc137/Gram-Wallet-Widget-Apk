@@ -51,7 +51,7 @@ public class WalletCardView extends View {
     private float loadFade = 0f;
     private ValueAnimator loadAnim;
     private ValueAnimator fadeAnim;
-    private final PathInterpolator fadeEase = new PathInterpolator(0.22f, 1f, 0.36f, 1f);
+    private final PathInterpolator fadeEase = new PathInterpolator(.22f,1f,.36f,1f);
     private int loadColor = 0xFF0088FF;
 
     public WalletCardView(Context context) {
@@ -78,7 +78,7 @@ public class WalletCardView extends View {
                 int w = view.getWidth();
                 int h = view.getHeight();
                 if (w <= 0 || h <= 0) {outline.setEmpty(); return;}
-                outline.setRoundRect(0, 0, w, h, w * 0.02875f);
+                outline.setRoundRect(0, 0, w, h, w * .02875f);
             }
         });
         glowPaint.setColor(0x990060E6);
@@ -86,16 +86,11 @@ public class WalletCardView extends View {
         loadBlurPaint.setMaskFilter(new BlurMaskFilter(dp(28f), BlurMaskFilter.Blur.NORMAL));
     }
 
-    public void setValues(String balance, String usd) {
-        apply(balance, usd, this.address, this.decor, false);
-    }
-
-    public void setAddress(String address) {
-        apply(this.balance, this.usd, address, this.decor, false);
-    }
-
+    public void setValues(String balance, String usd) {apply(balance, usd, this.address, this.decor, false);}
+    public void setAddress(String address) {apply(this.balance, this.usd, address, this.decor, false);}
     public void setDecor(CardDecor decor) {apply(this.balance, this.usd, this.address, decor, true);}
     public void apply(String balance, String usd, String address, CardDecor decor) {apply(balance, usd, address, decor, true);}
+
     public void bindWallet(String address, String balance, String usd, CardDecor decor) {
         this.balance = balance == null ? "—" : balance;
         this.usd = usd == null ? "—" : usd;
@@ -203,7 +198,7 @@ public class WalletCardView extends View {
 
     private void fadeInContent(boolean fromLoading) {
         cancelFade();
-        float start = fromLoading ? 0f : Math.max(0.35f, contentAlpha);
+        float start = fromLoading ? 0f : Math.max(.35f, contentAlpha);
         contentAlpha = start;
         loadFade = fromLoading ? 1f : 0f;
         fadeAnim = ValueAnimator.ofFloat(0f, 1f);
@@ -248,13 +243,13 @@ public class WalletCardView extends View {
     @Override
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
-        float radius = getWidth() * 0.02875f;
+        float radius = getWidth() * .02875f;
         glowRect.set(0f, 0f, getWidth(), getHeight());
-        glowRect.inset(getWidth() * 0.015f, getHeight() * 0.02f);
-        glowRect.offset(0f, getHeight() * 0.028f);
-        canvas.drawRoundRect(glowRect, radius * 0.95f, radius * 0.95f, glowPaint);
-        if (loading || loadFade > 0.01f) {drawLoading(canvas, radius);}
-        if (loading && loadFade >= 0.99f) {return;}
+        glowRect.inset(getWidth() * .015f, getHeight() * .02f);
+        glowRect.offset(0f, getHeight() * .028f);
+        canvas.drawRoundRect(glowRect, radius * .95f, radius * .95f, glowPaint);
+        if (loading || loadFade > .01f) {drawLoading(canvas, radius);}
+        if (loading && loadFade >= .99f) {return;}
         if (bitmap == null) {
             rebuild();
             if (bitmap == null) {return;}
@@ -278,20 +273,20 @@ public class WalletCardView extends View {
         float wave = (float) Math.sin(t * Math.PI * 2.0);
         int a66 = Math.round(0x66 * fade);
         int a44 = Math.round(0x44 * fade);
-        int light = mixWhite(loadColor, 0.42f + 0.18f * wave);
+        int light = mixWhite(loadColor, .42f + .18f * wave);
         loadBlurPaint.setColor((light & 0x00FFFFFF) | (a66 << 24));
-        float cx = w * (0.28f + 0.44f * t);
-        float cy = h * (0.35f + 0.12f * wave);
-        canvas.drawCircle(cx, cy, Math.min(w, h) * 0.38f, loadBlurPaint);
-        loadBlurPaint.setColor((mixWhite(loadColor, 0.55f) & 0x00FFFFFF) | (a44 << 24));
-        canvas.drawCircle(w * (0.72f - 0.3f * t), h * 0.68f, Math.min(w, h) * 0.28f, loadBlurPaint);
-        float barW = w * 0.34f;
-        float barH = Math.max(dp(4f), h * 0.028f);
-        float barX = (w - barW) * 0.5f;
-        float barY = h * 0.78f;
+        float cx = w * (.28f + .44f * t);
+        float cy = h * (.35f + .12f * wave);
+        canvas.drawCircle(cx, cy, Math.min(w, h) * .38f, loadBlurPaint);
+        loadBlurPaint.setColor((mixWhite(loadColor, .55f) & 0x00FFFFFF) | (a44 << 24));
+        canvas.drawCircle(w * (.72f - .3f * t), h * .68f, Math.min(w, h) * .28f, loadBlurPaint);
+        float barW = w * .34f;
+        float barH = Math.max(dp(4f), h * .028f);
+        float barX = (w - barW) * .5f;
+        float barY = h * .78f;
         loadPaint.setColor((0x33FFFFFF & 0x00FFFFFF) | (Math.round(0x33 * fade) << 24));
         canvas.drawRoundRect(barX, barY, barX + barW, barY + barH, barH, barH, loadPaint);
-        float fill = barW * (0.22f + 0.56f * t);
+        float fill = barW * (.22f + .56f * t);
         loadPaint.setColor((0xCCFFFFFF & 0x00FFFFFF) | (Math.round(0xCC * fade) << 24));
         canvas.drawRoundRect(barX, barY, barX + fill, barY + barH, barH, barH, loadPaint);
         loadPaint.setAlpha(255);

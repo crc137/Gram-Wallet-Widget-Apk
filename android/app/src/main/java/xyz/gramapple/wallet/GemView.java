@@ -29,7 +29,6 @@ public final class GemView extends FrameLayout {
     private WebView web;
     private boolean loaded;
     private boolean wanted;
-
     public GemView(Context context) {this(context, null);}
     public GemView(Context context, AttributeSet attrs) {this(context, attrs, 0);}
     public GemView(Context context, AttributeSet attrs, int defStyleAttr) {

@@ -66,7 +66,6 @@
 
   document.addEventListener('visibilitychange', function () {if (document.hidden) sleep();});
   canvas.addEventListener('pointerdown', function () { armSleep(); }, true);
-
   window.GemControl = { wake: wake, sleep: sleep };
   wake();
 })();

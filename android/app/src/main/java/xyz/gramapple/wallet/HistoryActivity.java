@@ -142,7 +142,7 @@ public class HistoryActivity extends Activity {
     private void refreshFilterButton() {
         boolean active = !"all".equals(dirFilter) || !"all".equals(typeFilter) || !"all".equals(periodFilter) || hideSpam;
         filterButton.setTextColor(getColor(active ? R.color.white : R.color.white));
-        filterButton.setAlpha(active ? 1f : 0.85f);
+        filterButton.setAlpha(active ? 1f : .85f);
     }
 
     private void showFilterSheet() {
@@ -168,27 +168,12 @@ public class HistoryActivity extends Activity {
             draftSpam[0] = checked;
             styleSpamSwitch(spamSwitch);
         });
-        final View[] typeRows = {
-                dialog.findViewById(R.id.filter_type_all), dialog.findViewById(R.id.filter_type_ton),
-                dialog.findViewById(R.id.filter_type_token), dialog.findViewById(R.id.filter_type_nft),
-                dialog.findViewById(R.id.filter_type_swap), dialog.findViewById(R.id.filter_type_stake),
-                dialog.findViewById(R.id.filter_type_domain), dialog.findViewById(R.id.filter_type_contract)
-        };
+        final View[] typeRows = {dialog.findViewById(R.id.filter_type_all), dialog.findViewById(R.id.filter_type_ton),dialog.findViewById(R.id.filter_type_token), dialog.findViewById(R.id.filter_type_nft),dialog.findViewById(R.id.filter_type_swap), dialog.findViewById(R.id.filter_type_stake),dialog.findViewById(R.id.filter_type_domain), dialog.findViewById(R.id.filter_type_contract)};
         final String[] typeKeys = {"all", "ton", "token", "nft", "swap", "stake", "domain", "contract"};
-        final int[] typeLabels = {
-                R.string.filter_type_all, R.string.filter_type_ton, R.string.filter_type_token, R.string.filter_type_nft,
-                R.string.filter_type_swap, R.string.filter_type_stake, R.string.filter_type_domain, R.string.filter_type_contract
-        };
-        final View[] periodRows = {
-                dialog.findViewById(R.id.filter_period_all), dialog.findViewById(R.id.filter_period_week),
-                dialog.findViewById(R.id.filter_period_month), dialog.findViewById(R.id.filter_period_quarter),
-                dialog.findViewById(R.id.filter_period_year)
-        };
+        final int[] typeLabels = {R.string.filter_type_all, R.string.filter_type_ton, R.string.filter_type_token, R.string.filter_type_nft,R.string.filter_type_swap, R.string.filter_type_stake, R.string.filter_type_domain, R.string.filter_type_contract};
+        final View[] periodRows = {dialog.findViewById(R.id.filter_period_all), dialog.findViewById(R.id.filter_period_week),dialog.findViewById(R.id.filter_period_month), dialog.findViewById(R.id.filter_period_quarter),dialog.findViewById(R.id.filter_period_year)};
         final String[] periodKeys = {"all", "week", "month", "quarter", "year"};
-        final int[] periodLabels = {
-                R.string.filter_period_all, R.string.filter_period_week, R.string.filter_period_month,
-                R.string.filter_period_quarter, R.string.filter_period_year
-        };
+        final int[] periodLabels = {R.string.filter_period_all, R.string.filter_period_week, R.string.filter_period_month,R.string.filter_period_quarter, R.string.filter_period_year};
         Runnable paint = () -> {
             styleDirSeg(dirAll, "all".equals(draftDir[0]));
             styleDirSeg(dirIn, "in".equals(draftDir[0]));
@@ -340,7 +325,6 @@ public class HistoryActivity extends Activity {
     }
 
     private void loadMore() {if (nextCursor != null) {load(nextCursor, true);}}
-
     private void showTxDetail(Tx tx) {TxDetail.show(this, tx);}
 
     private void load(final String cursor, final boolean append) {
@@ -503,7 +487,7 @@ public class HistoryActivity extends Activity {
         private void applyCommentBlur(TextView comment) {
             if (Build.VERSION.SDK_INT >= 31) {comment.setRenderEffect(RenderEffect.createBlurEffect(14f, 14f, Shader.TileMode.CLAMP));} else {
                 comment.setText(R.string.tx_spam_hidden);
-                comment.setAlpha(0.7f);
+                comment.setAlpha(.7f);
             }
         }
 

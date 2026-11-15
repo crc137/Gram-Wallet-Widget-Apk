@@ -79,7 +79,7 @@ public class WidgetConfigureActivity extends Activity {
             if (i < wallets.size() - 1) {
                 View line = new View(this);
                 line.setBackgroundColor(0x33FFFFFF);
-                list.addView(line, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, Math.max(1, Math.round(0.5f * d))));
+                list.addView(line, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, Math.max(1, Math.round(.5f * d))));
             }
         }
     }

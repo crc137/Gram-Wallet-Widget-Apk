@@ -27,4 +27,4 @@
 <string name="notif_gift_multi">Получено подарков: %1$d</string>
 <string name="notif_update_title">Доступно обновление</string>
 <string name="notif_update_text">Gram Wallet %1$s готов к установке</string>
-</resources>
+<string name="activate_tip">Активировать</string><string name="activate_title">АКТИВАЦИЯ</string><string name="activate_hint">Этот кошелёк старый: это не кошелёк Telegram Money. Нажмите кнопку, чтобы активировать новый.</string><string name="activate_step1"></string><string name="activate_step2"></string><string name="activate_step3"></string><string name="activate_pending">Скоро: активация через сервис</string><string name="activate_cta">Активировать</string><string name="card_label_ton">Кошелёк TON</string></resources>

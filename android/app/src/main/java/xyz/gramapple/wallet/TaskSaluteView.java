@@ -78,8 +78,8 @@ final class TaskSaluteView extends View {
         }
         bmp.recycle();
         if (maxX < minX) {return;}
-        iconOffX = (size * 0.5f - (minX + maxX) * 0.5f) / size;
-        iconOffY = (size * 0.5f - (minY + maxY) * 0.5f) / size;
+        iconOffX = (size * .5f - (minX + maxX) * .5f) / size;
+        iconOffY = (size * .5f - (minY + maxY) * .5f) / size;
     }
 
     void play(Done done) {
@@ -101,7 +101,7 @@ final class TaskSaluteView extends View {
         anim.setInterpolator(new DecelerateInterpolator(1.2f));
         anim.addUpdateListener(a -> {
             progress = (float) a.getAnimatedValue();
-            if (progress > 0.72f) {fade = Math.max(0f, 1f - (progress - 0.72f) / 0.28f);}
+            if (progress > .72f) {fade = Math.max(0f, 1f - (progress - .72f) / .28f);}
             invalidate();
         });
         anim.addListener(new AnimatorListenerAdapter() {@Override public void onAnimationEnd(Animator animation) {if (TaskSaluteView.this.done != null) {TaskSaluteView.this.done.onFinished();}}});
@@ -112,21 +112,21 @@ final class TaskSaluteView extends View {
     protected void onDraw(Canvas canvas) {
         float w = getWidth(), h = getHeight();
         if (w <= 0 || h <= 0) {return;}
-        float cx = w * 0.5f, cy = h * 0.42f;
+        float cx = w * .5f, cy = h * .42f;
         int veil = Math.round(0xB0 * fade);
         canvas.drawColor((veil << 24) | 0x000088FF);
         float t = progress;
         for (int i = 0; i < px.length; i++) {
             float x = cx + vx[i] * t * 18f;
             float y = cy + vy[i] * t * 18f + 40f * t * t;
-            float a = fade * (1f - t * 0.85f);
-            if (a <= 0.02f) {continue;}
+            float a = fade * (1f - t * .85f);
+            if (a <= .02f) {continue;}
             paint.setColor(pc[i]);
             paint.setAlpha(Math.round(255f * a));
-            canvas.drawCircle(x, y, pr[i] * (1f - t * 0.35f), paint);
+            canvas.drawCircle(x, y, pr[i] * (1f - t * .35f), paint);
         }
         float scale = new AccelerateDecelerateInterpolator().getInterpolation(Math.min(1f, t * 1.6f));
-        float r = Math.min(w, h) * 0.11f * (0.7f + 0.3f * scale);
+        float r = Math.min(w, h) * .11f * (.7f + .3f * scale);
         circlePaint.setAlpha(Math.round(255f * fade));
         canvas.drawCircle(cx, cy, r, circlePaint);
         if (icon != null) {
@@ -134,19 +134,19 @@ final class TaskSaluteView extends View {
             float icx = cx + iconOffX * s;
             float icy = cy + iconOffY * s;
             icon.setAlpha(Math.round(255f * fade));
-            icon.setBounds(Math.round(icx - s * 0.5f), Math.round(icy - s * 0.5f), Math.round(icx + s * 0.5f), Math.round(icy + s * 0.5f));
+            icon.setBounds(Math.round(icx - s * .5f), Math.round(icy - s * .5f), Math.round(icx + s * .5f), Math.round(icy + s * .5f));
             icon.draw(canvas);
         } else {
             paint.setColor(0xFF0088FF);
             paint.setAlpha(Math.round(255f * fade));
             paint.setStyle(Paint.Style.FILL);
             thumb.reset();
-            float u = r * 0.35f;
-            thumb.moveTo(cx - u, cy + u * 0.2f);
-            thumb.lineTo(cx - u * 0.2f, cy + u);
-            thumb.lineTo(cx + u, cy - u * 0.4f);
-            thumb.lineTo(cx + u * 0.55f, cy - u * 0.7f);
-            thumb.lineTo(cx - u * 0.1f, cy + u * 0.15f);
+            float u = r * .35f;
+            thumb.moveTo(cx - u, cy + u * .2f);
+            thumb.lineTo(cx - u * .2f, cy + u);
+            thumb.lineTo(cx + u, cy - u * .4f);
+            thumb.lineTo(cx + u * .55f, cy - u * .7f);
+            thumb.lineTo(cx - u * .1f, cy + u * .15f);
             thumb.close();
             canvas.drawPath(thumb, paint);
         }

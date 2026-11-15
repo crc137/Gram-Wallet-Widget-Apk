@@ -32,7 +32,6 @@ public final class CoverVideoView extends FrameLayout implements TextureView.Sur
     private boolean startWhenReady;
     private MediaPlayer.OnPreparedListener preparedListener;
     private MediaPlayer.OnErrorListener errorListener;
-
     public CoverVideoView(Context context) {this(context, null);}
     public CoverVideoView(Context context, AttributeSet attrs) {this(context, attrs, 0);}
     public CoverVideoView(Context context, AttributeSet attrs, int defStyleAttr) {
@@ -133,7 +132,7 @@ public final class CoverVideoView extends FrameLayout implements TextureView.Sur
         float scaledH = videoHeight * scale;
         Matrix matrix = new Matrix();
         matrix.setScale(scaledW / viewW, scaledH / viewH);
-        matrix.postTranslate((viewW - scaledW) * 0.5f, (viewH - scaledH) * 0.5f);
+        matrix.postTranslate((viewW - scaledW) * .5f, (viewH - scaledH) * .5f);
         texture.setTransform(matrix);
     }
 

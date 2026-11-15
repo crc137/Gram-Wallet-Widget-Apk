@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+✨ CoonDev • https://dev.coonlink.com/
+
+ ▄█▄    ████▄ ████▄    ▄   ██▄   ▄███▄      ▄
+ █▀ ▀▄  █   █ █   █     █  █  █  █▀   ▀      █
+ █   ▀  █   █ █   █ ██   █ █   █ ██▄▄   █     █
+ █▄  ▄▀ ▀████ ▀████ █ █  █ █  █  █▄   ▄▀ █    █
+ ▀███▀              █  █ █ ███▀  ▀███▀    █  █
+                    █   ██                 █▐
+                                           ▐
+-->
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android" android:id="@+id/activate_root" android:layout_width="match_parent" android:layout_height="match_parent" android:background="@drawable/app_bg" android:clipToPadding="false" android:fillViewport="true" android:overScrollMode="never" android:paddingStart="20dp" android:paddingTop="8dp" android:paddingEnd="20dp" android:paddingBottom="96dp" android:scrollbars="none">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:letterSpacing="0.12" android:text="@string/activate_title" android:textColor="#99FFFFFF" android:textSize="11sp" android:textStyle="bold" />
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:text="@string/activate_hint" android:textColor="#CCFFFFFF" android:textSize="14sp" />
+        <Button android:id="@+id/activate_cta" android:layout_width="match_parent" android:layout_height="48dp" android:layout_marginTop="16dp" android:background="@drawable/button_white" android:stateListAnimator="@null" android:text="@string/activate_cta" android:textAllCaps="false" android:textColor="@color/gram_blue" android:textSize="15sp" android:textStyle="bold" />
+    </LinearLayout>
+</ScrollView>

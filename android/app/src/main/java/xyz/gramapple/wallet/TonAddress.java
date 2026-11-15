@@ -19,7 +19,6 @@ final class TonAddress {
     private static final Pattern RAW = Pattern.compile("^(-?\\d{1,3}):([0-9a-fA-F]{64})$");
     private static final Pattern FRIENDLY = Pattern.compile("^[A-Za-z0-9_-]{48}$");
     private static final int FRIENDLY_BYTES = 36;
-
     private TonAddress() {}
 
     static String normalize(String input) {

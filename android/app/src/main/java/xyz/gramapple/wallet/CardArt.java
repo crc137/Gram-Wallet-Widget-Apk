@@ -44,7 +44,7 @@ final class CardArt {
     private static final float BALANCE_TOP = 21.131f;
     private static final float BALANCE_LINE = 8.33333f;
     private static final float BALANCE_ROW_CENTER = 4.37168f;
-    private static final float GRAM_BASELINE_SHIFT = 0.2053f;
+    private static final float GRAM_BASELINE_SHIFT = .2053f;
     private static final float BALANCE_SIZE = 6.54762f;
     private static final float BALANCE_SMALL = 5.35714f;
     private static final float BALANCE_RIGHT = 29.7619f;
@@ -63,13 +63,13 @@ final class CardArt {
     private static final float ADDR_STRIP = 6.54762f;
     private static final float ADDR_BLOCK = 50.2976f;
     private static final float ADDR_SIZE = 2.97619f;
-    private static final float ADDR_SHADOW = 0.297619f;
+    private static final float ADDR_SHADOW = .297619f;
     private static final float QR_TOP = 22.0238f;
     private static final float QR_RIGHT = 13.6905f;
     private static final float QR_W = 14.2857f;
     private static final float QR_H = 10.7143f;
     private static final float QR_RADIUS = 2.38095f;
-    private static final float QR_RING = 0.297619f;
+    private static final float QR_RING = .297619f;
     private static final float QR_ICON = 7.14286f;
     private static final float PATTERN_REF_W = 1008f;
     private static final float PATTERN_STAMP_W = 62f;
@@ -78,14 +78,14 @@ final class CardArt {
     private static final int[] STAR_X = {89, 78, 95, 84, 72, 11, 7, 21, 14, 92,86, 95, 10, 20, 7, 46, 60, 6, 78, 66};
     private static final int[] STAR_Y = {13, 8, 24, 22, 14, 76, 88, 86, 66, 62,74, 48, 14, 9, 28, 7, 10, 48, 91, 94};
     private static final float[] STAR_SIZE = {4.7619f, 2.38095f, 2.08333f, 1.4881f,1.19048f, 4.46429f, 2.38095f, 1.78571f, 1.4881f, 3.57143f,1.78571f, 1.4881f, 2.67857f, 1.4881f, 1.19048f, 1.4881f,1.19048f, 1.4881f, 2.08333f, 1.19048f};
-    private static final float[] STAR_ALPHA = {0.48f, 0.24f, 0.2f, 0.14f, 0.1f,0.44f, 0.22f, 0.16f, 0.12f, 0.36f, 0.16f, 0.12f, 0.26f, 0.12f,0.1f, 0.12f, 0.1f, 0.12f, 0.18f, 0.1f};
-    private static final float[] T1_POS = {0f, 0.01375f, 0.04375f, 0.090625f,0.09875f, 0.15625f, 0.215625f, 0.38125f};
+    private static final float[] STAR_ALPHA = {.48f,.24f,.2f,.14f,.1f,.44f,.22f,.16f,.12f,.36f,.16f,.12f,.26f,.12f,.1f,.12f,.1f,.12f,.18f,.1f};
+    private static final float[] T1_POS = {0f,.01375f,.04375f,.090625f,.09875f,.15625f,.215625f,.38125f};
     private static final int[] T1_COL = {0x6BFFFFFF, 0x33000000, 0x00000000,0x2EFFFFFF, 0x00000000, 0x29000000, 0x00000000};
-    private static final float[] T2_POS = {0f, 0.028125f, 0.071875f, 0.121875f,0.134375f, 0.2625f, 0.27375f, 0.51875f};
+    private static final float[] T2_POS = {0f,.028125f,.071875f,.121875f,.134375f,.2625f,.27375f,.51875f};
     private static final int[] T2_COL = {0x2E000000, 0x00000000, 0x47FFFFFF,0x1F000000, 0x00000000, 0x1FFFFFFF, 0x00000000};
-    private static final float[] T3_POS = {0f, 0.00875f, 0.059375f, 0.115625f,0.16875f, 0.325f};
+    private static final float[] T3_POS = {0f,.00875f,.059375f,.115625f,.16875f,.325f};
     private static final int[] T3_COL = {0x38FFFFFF, 0x00000000, 0x24000000,0x29FFFFFF, 0x00000000};
-    private static final float[] T4_POS = {0f, 0.04375f, 0.078125f, 0.73125f};
+    private static final float[] T4_POS = {0f,.04375f,.078125f,.73125f};
     private static final int[] T4_COL = {0x52FFFFFF, 0x2E000000, 0x00000000};
     private static Typeface sTypeface;
     private static Bitmap sDiamond;
@@ -162,12 +162,12 @@ final class CardArt {
 
     private static Palette palette(CardDecor.Background bg) {
         if (bg == null) {return new Palette(0xFF6DDCFF, 0xFF87EFFF, 0xCC055AC4, Color.WHITE, 0x5978D6FF, 0xFF0C73D5, 0xFFF4F9FF, 0xFFA8C7ED, 0x4000328C);}
-        int accent = mix(bg.centerColor, 0xFFFFFFFF, 0.72f);
-        int rim = withAlpha(mix(bg.centerColor, 0xFFFFFFFF, 0.55f), 0.55f);
-        int ring = mix(bg.edgeColor, bg.centerColor, 0.35f);
-        int address = withAlpha(mix(bg.edgeColor, 0xFF000000, 0.35f), 0.8f);
-        int star = withAlpha(mix(bg.centerColor, 0xFFFFFFFF, 0.88f), 0.95f);
-        return new Palette(accent, accent, address, star, rim, ring | 0xFF000000, 0xFFF7F8FF, 0xFFB9C1EC, withAlpha(bg.edgeColor, 0.28f));
+        int accent = mix(bg.centerColor, 0xFFFFFFFF,.72f);
+        int rim = withAlpha(mix(bg.centerColor, 0xFFFFFFFF,.55f),.55f);
+        int ring = mix(bg.edgeColor, bg.centerColor,.35f);
+        int address = withAlpha(mix(bg.edgeColor, 0xFF000000,.35f),.8f);
+        int star = withAlpha(mix(bg.centerColor, 0xFFFFFFFF,.88f),.95f);
+        return new Palette(accent, accent, address, star, rim, ring | 0xFF000000, 0xFFF7F8FF, 0xFFB9C1EC, withAlpha(bg.edgeColor,.28f));
     }
 
     private static int withAlpha(int color, float alpha) {
@@ -187,7 +187,7 @@ final class CardArt {
 
     private static void drawBackground(Canvas canvas, float w, float h, CardDecor.Background bg) {
         Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        if (bg != null) {paint.setShader(new RadialGradient(w * 0.42f, h * 0.38f, Math.max(w, h) * 0.92f,bg.centerColor, bg.edgeColor, Shader.TileMode.CLAMP));} else {paint.setShader(linear(145f,new RectF(0f, 0f, w, h),new int[]{0xFF5CC8FF, 0xFF0088FF, 0xFF0057C2},new float[]{0f, 0.46f, 1f}));}
+        if (bg != null) {paint.setShader(new RadialGradient(w * .42f, h * .38f, Math.max(w, h) * .92f,bg.centerColor, bg.edgeColor, Shader.TileMode.CLAMP));} else {paint.setShader(linear(145f,new RectF(0f, 0f, w, h),new int[]{0xFF5CC8FF, 0xFF0088FF, 0xFF0057C2},new float[]{0f,.46f,1f}));}
         canvas.drawRect(0f, 0f, w, h, paint);
     }
 
@@ -211,7 +211,7 @@ final class CardArt {
         for (int[] p : PATTERN_XY) {
             float cx = p[0] * sx;
             float cy = p[1] * sy;
-            canvas.drawBitmap(stamp, null, new RectF(cx - sw * 0.5f, cy - sh * 0.5f, cx + sw * 0.5f, cy + sh * 0.5f), paint);
+            canvas.drawBitmap(stamp, null, new RectF(cx - sw * .5f, cy - sh * .5f, cx + sw * .5f, cy + sh * .5f), paint);
         }
         paint.setColorFilter(null);
     }
@@ -223,7 +223,7 @@ final class CardArt {
         outline.setColorFilter(new PorterDuffColorFilter(Color.WHITE, PorterDuff.Mode.SRC_IN));
         Paint shadow = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
         shadow.setColorFilter(new PorterDuffColorFilter(0x66000000, PorterDuff.Mode.SRC_IN));
-        shadow.setMaskFilter(new BlurMaskFilter(Math.max(2f, Math.min(w, h) * 0.014f), BlurMaskFilter.Blur.NORMAL));
+        shadow.setMaskFilter(new BlurMaskFilter(Math.max(2f, Math.min(w, h) * .014f), BlurMaskFilter.Blur.NORMAL));
         List<CardDecor.Gift> ordered = new ArrayList<>(decor.gifts);
         ordered.sort((a, b) -> Float.compare(b.w * b.h, a.w * a.h));
         for (CardDecor.Gift gift : ordered) {
@@ -233,13 +233,13 @@ final class CardArt {
             float cy = gift.y * h / 100f;
             Bitmap bitmap = GiftImages.get(context, gift);
             if (bitmap == null) {continue;}
-            float stroke = Math.max(1.6f, Math.min(bw, bh) * 0.038f);
-            float drop = Math.max(1.5f, Math.min(bw, bh) * 0.04f);
-            RectF dst = new RectF(-bw * 0.5f, -bh * 0.5f, bw * 0.5f, bh * 0.5f);
+            float stroke = Math.max(1.6f, Math.min(bw, bh) * .038f);
+            float drop = Math.max(1.5f, Math.min(bw, bh) * .04f);
+            RectF dst = new RectF(-bw * .5f, -bh * .5f, bw * .5f, bh * .5f);
             canvas.save();
             canvas.translate(cx, cy);
             canvas.rotate(gift.rotation);
-            canvas.drawBitmap(bitmap,null,new RectF(dst.left + drop * 0.2f, dst.top + drop, dst.right + drop * 0.2f, dst.bottom + drop),shadow);
+            canvas.drawBitmap(bitmap,null,new RectF(dst.left + drop * .2f, dst.top + drop, dst.right + drop * .2f, dst.bottom + drop),shadow);
             for (int i = 0; i < 16; i++) {
                 double ang = i * Math.PI / 8.0;
                 float ox = (float) (Math.cos(ang) * stroke);
@@ -290,7 +290,7 @@ final class CardArt {
         Bitmap glare = Bitmap.createBitmap(gw, gh, Bitmap.Config.ARGB_8888);
         Canvas gc = new Canvas(glare);
         int[] colors = {0x00FFFFFF, 0x00FFFFFF, 0x1AFFFFFF, 0x2BFFFFFF, 0x60FFFFFF,0x2BFFFFFF, 0x1AFFFFFF, 0x00FFFFFF, 0x00FFFFFF, 0x1AFFFFFF,0x2BFFFFFF, 0x60FFFFFF, 0x2BFFFFFF, 0x1AFFFFFF, 0x00FFFFFF,0x00FFFFFF};
-        float[] stops = {0f, 0.0111f, 0.0778f, 0.1167f, 0.15f, 0.1833f, 0.2389f,0.3444f, 0.5111f, 0.5778f, 0.6167f, 0.65f, 0.6833f, 0.7389f,0.8444f, 1f};
+        float[] stops = {0f,.0111f,.0778f,.1167f,.15f,.1833f,.2389f,.3444f,.5111f,.5778f,.6167f,.65f,.6833f,.7389f,.8444f,1f};
         SweepGradient sweep = new SweepGradient(gw / 2f, gh / 2f, colors, stops);
         Matrix matrix = new Matrix();
         matrix.setRotate(-90f, gw / 2f, gh / 2f);
@@ -302,8 +302,8 @@ final class CardArt {
         glare.getPixels(pixels, 0, gw, 0, 0, gw, gh);
         byte[] alpha = new byte[gw * gh];
         for (int i = 0; i < alpha.length; i++) {alpha[i] = (byte) (pixels[i] >>> 24);}
-        float sigmaLow = 0.0535714f * gw;
-        int radius = Math.max(1, Math.round(sigmaLow - 0.5f));
+        float sigmaLow = .0535714f * gw;
+        int radius = Math.max(1, Math.round(sigmaLow - .5f));
         byte[] tmp = new byte[alpha.length];
         for (int pass = 0; pass < 3; pass++) {
             blurAlphaH(alpha, tmp, gw, gh, radius);
@@ -314,7 +314,6 @@ final class CardArt {
             pixels[i] = (a << 24) | 0x00FFFFFF;
         }
         glare.setPixels(pixels, 0, gw, 0, 0, gw, gh);
-
         Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
         paint.setAlpha(163);
         paint.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.ADD));
@@ -358,13 +357,13 @@ final class CardArt {
     private static void drawInnerShade(Canvas canvas, float w, float h, Palette pal) {
         float q = w / 100f;
         Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        paint.setShader(new LinearGradient(0f, 0f, 0f, 0.9f * q,new int[]{0x24000000, 0x00000000}, null, Shader.TileMode.CLAMP));
-        canvas.drawRect(0f, 0f, w, 0.9f * q, paint);
+        paint.setShader(new LinearGradient(0f,0f,0f,.9f * q,new int[]{0x24000000, 0x00000000}, null, Shader.TileMode.CLAMP));
+        canvas.drawRect(0f,0f,w,.9f * q,paint);
         Paint edge = new Paint(Paint.ANTI_ALIAS_FLAG);
         edge.setColor(pal.rim);
-        canvas.drawRect(0f, 0f, w, Math.max(1f, 0.06f * q), edge);
-        edge.setColor(withAlpha(pal.rim, 0.18f));
-        canvas.drawRect(0f, 0f, Math.max(1f, 0.06f * q), h, edge);
+        canvas.drawRect(0f, 0f, w, Math.max(1f,.06f * q), edge);
+        edge.setColor(withAlpha(pal.rim,.18f));
+        canvas.drawRect(0f, 0f, Math.max(1f,.06f * q), h, edge);
     }
 
     private static void drawBalanceRow(Canvas canvas, float w, String balance, Resources res, Palette pal) {
@@ -384,7 +383,7 @@ final class CardArt {
         String fraction = sep >= 0 ? value.substring(sep) : "";
         Paint big = text(bigSize, 0xFFFFFFFF, res);
         Paint small = text(smallSize, 0xFFFFFFFF, res);
-        Paint unit = text(smallSize, withAlpha(pal.unit, 0.78f), res);
+        Paint unit = text(smallSize, withAlpha(pal.unit,.78f), res);
         float wholeW = big.measureText(whole);
         float fractionW = small.measureText(fraction);
         float unitW = unit.measureText(BALANCE_GB);
@@ -428,8 +427,9 @@ final class CardArt {
         Paint paint = text(size, 0xFFFFFFFF, null);
         String label;
         if (decor != null && decor.domain != null) {label = decor.domain;}
-        else if (res != null) {label = res.getString(R.string.card_label);}
-        else {label = "Telegram Wallet";}
+        else if (decor != null && decor.telegramWallet) {label = res != null ? res.getString(R.string.card_label) : "Telegram Wallet";}
+        else if (res != null) {label = res.getString(R.string.card_label_ton);}
+        else {label = "TON Wallet";}
         label = label.toUpperCase(java.util.Locale.getDefault());
         canvas.drawText(label, LABEL_LEFT * q, baseline(paint, top, line), paint);
     }
@@ -475,14 +475,14 @@ final class CardArt {
         canvas.drawRoundRect(ring, radius + QR_RING * q, radius + QR_RING * q, paint);
         paint = new Paint(Paint.ANTI_ALIAS_FLAG);
         paint.setColor(pal.chipShadow);
-        paint.setMaskFilter(new BlurMaskFilter(0.9f * q, BlurMaskFilter.Blur.NORMAL));
+        paint.setMaskFilter(new BlurMaskFilter(.9f * q, BlurMaskFilter.Blur.NORMAL));
         RectF shadow = new RectF(qr);
-        shadow.offset(0f, 0.595238f * q);
+        shadow.offset(0f,.595238f * q);
         canvas.drawRoundRect(shadow, radius, radius, paint);
         canvas.save();
         canvas.clipPath(shape);
         paint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        paint.setShader(linear(172f, qr, new int[]{pal.chipTop, pal.chipBottom}, new float[]{0.27f, 0.97f}));
+        paint.setShader(linear(172f, qr, new int[]{pal.chipTop, pal.chipBottom}, new float[]{.27f,.97f}));
         canvas.drawRect(qr, paint);
         paint = new Paint(Paint.ANTI_ALIAS_FLAG);
         paint.setShader(new LinearGradient(0f, qr.top, 0f, qr.top + 1.65f * q,new int[]{0xD9FFFFFF, 0x00FFFFFF}, null, Shader.TileMode.CLAMP));
@@ -493,9 +493,9 @@ final class CardArt {
         paint.setColor(pal.ring);
         canvas.drawPath(shape, paint);
         RectF sheenRect = new RectF(qr);
-        sheenRect.inset(-0.6f * qr.width(), -0.4f * qr.height());
+        sheenRect.inset(-.6f * qr.width(),-.4f * qr.height());
         paint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        paint.setShader(linear(115f, sheenRect,new int[]{0x00FFFFFF, 0x00FFFFFF, 0x80FFFFFF, 0xD9FFFFFF,0x66FFFFFF, 0x00FFFFFF},new float[]{0f, 0.38f, 0.47f, 0.5f, 0.53f, 0.62f}));
+        paint.setShader(linear(115f, sheenRect,new int[]{0x00FFFFFF, 0x00FFFFFF, 0x80FFFFFF, 0xD9FFFFFF,0x66FFFFFF, 0x00FFFFFF},new float[]{0f,.38f,.47f,.5f,.53f,.62f}));
         canvas.drawRect(sheenRect, paint);
 
         Bitmap icon = qrIcon(res);
@@ -541,7 +541,7 @@ final class CardArt {
     private static float glyphAdvance(Paint paint, String glyph) {
         float measured = paint.measureText(glyph);
         float exact = paint.getTextSize() * ADVANCE_RATIO;
-        return Math.abs(measured - exact) > 0.05f ? exact : measured;
+        return Math.abs(measured - exact) > .05f ? exact : measured;
     }
 
     private static Typeface typeface(Resources res) {
@@ -584,7 +584,7 @@ final class CardArt {
     private static Bitmap buildTexture(int w, int h) {
         float rem = 16f * w / BASE_WIDTH;
         float maxRadius = (float) Math.sqrt(w * w + h * h) / 2f + 2f;
-        float step = 0.5f;
+        float step = .5f;
         int count = (int) Math.ceil(maxRadius / step) + 2;
         int[] lut = new int[count];
         for (int i = 0; i < count; i++) {
@@ -596,10 +596,10 @@ final class CardArt {
         float cx = w / 2f;
         float cy = h / 2f;
         for (int y = 0; y < h; y++) {
-            float dy = y + 0.5f - cy;
+            float dy = y + .5f - cy;
             int row = y * w;
             for (int x = 0; x < w; x++) {
-                float dx = x + 0.5f - cx;
+                float dx = x + .5f - cx;
                 float radius = (float) Math.sqrt(dx * dx + dy * dy);
                 float pos = radius / step;
                 int index = (int) pos;
@@ -623,7 +623,7 @@ final class CardArt {
     }
 
     private static int combineTexture(float radius, float rem) {
-        float[] offsets = {-0.375f, -0.125f, 0.125f, 0.375f};
+        float[] offsets = {-.375f,-.125f,.125f,.375f};
         long alpha = 0;
         long red = 0;
         long green = 0;

@@ -48,7 +48,7 @@ final class TxDetail {
         root.setBackground(new GradientDrawable(GradientDrawable.Orientation.BOTTOM_TOP, new int[]{0xA6000000, 0x00000000}));
         root.setAlpha(0f);
         View sheet = LayoutInflater.from(activity).inflate(R.layout.dialog_tx_detail, root, false);
-        FrameLayout.LayoutParams sheetLp = new FrameLayout.LayoutParams(Math.round(activity.getResources().getDisplayMetrics().widthPixels * 0.92f), ViewGroup.LayoutParams.WRAP_CONTENT);
+        FrameLayout.LayoutParams sheetLp = new FrameLayout.LayoutParams(Math.round(activity.getResources().getDisplayMetrics().widthPixels * .92f), ViewGroup.LayoutParams.WRAP_CONTENT);
         sheetLp.gravity = Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL;
         sheetLp.bottomMargin = Math.round(24 * density);
         root.addView(sheet, sheetLp);
@@ -63,7 +63,7 @@ final class TxDetail {
         }
 
         bind(activity, sheet, tx);
-        PathInterpolator ease = new PathInterpolator(0.2f, 0.9f, 0.2f, 1f);
+        PathInterpolator ease = new PathInterpolator(.2f,.9f,.2f,1f);
         Runnable dismiss = () -> {
             sheet.animate().translationY(sheet.getHeight() + 80 * density).setDuration(260).setInterpolator(ease).start();
             root.animate().alpha(0f).setDuration(260).setInterpolator(ease).setListener(new AnimatorListenerAdapter() {@Override public void onAnimationEnd(Animator animation) {try {if (dialog.isShowing()) {dialog.dismiss();}} catch (Exception ignored) {}}}).start();
@@ -72,7 +72,6 @@ final class TxDetail {
         sheet.setOnClickListener(v -> {});
         sheet.findViewById(R.id.tx_detail_close).setOnClickListener(v -> dismiss.run());
         sheet.findViewById(R.id.tx_detail_ok).setOnClickListener(v -> dismiss.run());
-
         sheet.setTranslationY(720 * density);
         dialog.setOnShowListener(d -> sheet.post(() -> {
             float start = sheet.getHeight() <= 0 ? 720 * density : sheet.getHeight() + 64 * density;
@@ -118,7 +117,7 @@ final class TxDetail {
                 ImageLoader.load(activity, gem, "");
                 gem.setImageResource(R.drawable.ic_image_placeholder);
                 gem.setScaleType(ImageView.ScaleType.FIT_CENTER);
-                gem.setAlpha(0.55f);
+                gem.setAlpha(.55f);
             } else {ImageLoader.load(activity, gem, image);}
             amount.setText(R.string.tx_detail_nft_transfer);
             amount.setTextColor(0xFF8E8E93);

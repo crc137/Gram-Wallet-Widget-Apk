@@ -83,6 +83,8 @@ public class MainActivity extends Activity {
     private SlidePager slidePager;
     private MorphTabBar tabBar;
     private TabPages tabPages;
+    private View activatePage;
+    private View tasksPage;
     private int chartDays = 7;
     private String currentAddress;
     private int todaySeq;
@@ -150,13 +152,18 @@ public class MainActivity extends Activity {
         findViewById(R.id.header_add).setOnClickListener(view -> pinWidget());
         findViewById(R.id.header_settings).setOnClickListener(view -> startActivity(new Intent(this, SettingsActivity.class)));
         View walletTip = findViewById(R.id.wallet_tip);
-        if (walletTip != null) {walletTip.setOnClickListener(view -> startActivity(new Intent(this, SettingsActivity.class)));}
+        if (walletTip != null) {walletTip.setOnClickListener(view -> onWalletTipClick());}
         findViewById(R.id.header_filter).setOnClickListener(view -> {if (tabPages != null) {tabPages.openHistoryFilter();}});
         findViewById(R.id.today_all).setOnClickListener(view -> openHistory());
         slidePager = findViewById(R.id.slide_pager);
         tabBar = findViewById(R.id.tab_bar);
         tabPages = new TabPages(this, findViewById(R.id.history_root), findViewById(R.id.tokens_root), findViewById(R.id.nfts_root));
+        activatePage = findViewById(R.id.activate_root);
+        tasksPage = findViewById(R.id.tasks_root);
+        View activateCta = findViewById(R.id.activate_cta);
+        if (activateCta != null) {activateCta.setOnClickListener(v -> requestWalletActivation());}
         bindTasks();
+        syncExtraPages(false);
         tabBar.setListener(new MorphTabBar.Listener() {
             @Override public void onTabSelected(int index) {
                 if (needsWallet(index) && Store.getAddress(MainActivity.this) == null) {
@@ -244,12 +251,120 @@ public class MainActivity extends Activity {
         else if (currentAddress != null && !fresh) {refreshQuiet(currentAddress);}
         if (cardStack != null) {cardStack.setWallets(Store.getWallets(this), currentAddress);}
         updateWalletGate();
+        syncExtraPages(false);
         warmWalletCaches();
         loadToday(!changed && fresh);
         loadChart(!changed && fresh);
     }
 
     private Runnable walletPulseLoop;
+
+    private boolean needsActivate() {
+        String addr = Store.getAddress(this);
+        if (addr == null) {return false;}
+        CardDecor decor;
+        if (Store.hasCardCache(this, addr)) {decor = Store.loadCardCache(this, addr);}
+        else if (Store.hasCard(this)) {decor = Store.loadCard(this);}
+        else {return false;}
+        return decor != null && !decor.telegramWallet;
+    }
+
+    private int activateTabIndex() {
+        if (!needsActivate() || tabBar == null) {return -1;}
+        return 4;
+    }
+
+    private void onWalletTipClick() {
+        if (Store.getAddress(this) == null) {
+            startActivity(new Intent(this, SettingsActivity.class));
+            return;
+        }
+        if (needsActivate()) {openActivateTab(true); return;}
+        startActivity(new Intent(this, SettingsActivity.class));
+    }
+
+    private void openActivateTab(boolean animate) {
+        int idx = activateTabIndex();
+        if (idx < 0 || tabBar == null || slidePager == null) {return;}
+        tabBar.setSelectedIndex(idx, animate);
+        slidePager.setCurrentPage(idx, animate);
+        applyHeader(idx);
+    }
+
+    private void requestWalletActivation() {
+        String address = Store.getAddress(this);
+        if (address == null || address.isEmpty()) {
+            Toast.makeText(this, R.string.save_address_first, Toast.LENGTH_SHORT).show();
+            return;
+        }
+        Toast.makeText(this, R.string.activate_pending, Toast.LENGTH_SHORT).show();
+    }
+
+    private void syncExtraPages(boolean animateHide) {
+        if (slidePager == null || tabBar == null) {return;}
+        boolean needAct = needsActivate();
+        boolean needTasks = !Store.isTasksTabHidden(this);
+        if (activatePage == null) {activatePage = findViewById(R.id.activate_root);}
+        if (tasksPage == null) {tasksPage = findViewById(R.id.tasks_root);}
+        View act = activatePage;
+        View tasks = tasksPage;
+        int cur = slidePager.getCurrentPage();
+        View curChild = cur >= 0 && cur < slidePager.getChildCount() ? slidePager.getChildAt(cur) : null;
+        while (slidePager.getChildCount() > 4) {slidePager.removePageAt(slidePager.getChildCount() - 1);}
+        if (needAct && act != null) {
+            if (act.getParent() instanceof ViewGroup) {((ViewGroup) act.getParent()).removeView(act);}
+            slidePager.addView(act);
+        }
+        if (needTasks && tasks != null) {
+            if (tasks.getParent() instanceof ViewGroup) {((ViewGroup) tasks.getParent()).removeView(tasks);}
+            slidePager.addView(tasks);
+        }
+        java.util.ArrayList<Integer> icons = new java.util.ArrayList<>();
+        icons.add(R.drawable.ic_tab_wallet);
+        icons.add(R.drawable.ic_tab_history);
+        icons.add(R.drawable.ic_tab_tokens);
+        icons.add(R.drawable.ic_tab_nfts);
+        if (needAct) {icons.add(R.drawable.ic_tab_activate);}
+        if (needTasks) {icons.add(R.drawable.ic_tab_tasks);}
+        int[] ids = new int[icons.size()];
+        for (int i = 0; i < icons.size(); i++) {ids[i] = icons.get(i);}
+        tabBar.setTabIcons(ids);
+        int next = 0;
+        if (curChild != null) {for (int i = 0; i < slidePager.getChildCount(); i++) {if (slidePager.getChildAt(i) == curChild) {next = i; break;}}}
+        if (next >= slidePager.getChildCount()) {next = Math.max(0, slidePager.getChildCount() - 1);}
+        slidePager.setCurrentPage(next, false);
+        tabBar.setSelectedIndex(next, false);
+        applyHeader(next);
+        updateWalletTip();
+    }
+
+    private void updateWalletTip() {
+        boolean locked = Store.getAddress(this) == null;
+        boolean activate = !locked && needsActivate();
+        boolean showTip = locked || activate;
+        View tip = findViewById(R.id.wallet_tip);
+        View pulse = findViewById(R.id.wallet_tip_pulse);
+        if (tip instanceof TextView) {
+            ((TextView) tip).setText(activate ? R.string.activate_tip : R.string.add_wallet_tip);
+            tip.setVisibility(showTip && (slidePager == null || slidePager.getCurrentPage() <= 0) ? View.VISIBLE : View.GONE);
+        }
+        if (pulse != null) {
+            pulse.animate().cancel();
+            pulse.removeCallbacks(walletPulseLoop);
+            if (locked) {
+                pulse.setVisibility(View.VISIBLE);
+                walletPulseLoop = () -> {
+                    if (isFinishing() || Store.getAddress(this) != null) {pulse.setVisibility(View.GONE); return;}
+                    pulse.setScaleX(1f); pulse.setScaleY(1f); pulse.setAlpha(.9f);
+                    pulse.animate().scaleX(1.4f).scaleY(1.4f).alpha(0f).setDuration(1000L).withEndAction(() -> {if (walletPulseLoop != null) {pulse.postDelayed(walletPulseLoop, 500L);}}).start();
+                };
+                pulse.post(walletPulseLoop);
+            } else {
+                walletPulseLoop = null;
+                pulse.setVisibility(View.GONE);
+            }
+        }
+    }
 
     private void updateWalletGate() {
         boolean locked = Store.getAddress(this) == null;
@@ -262,25 +377,7 @@ public class MainActivity extends Activity {
                 applyHeader(0);
             }
         }
-        View tip = findViewById(R.id.wallet_tip);
-        View pulse = findViewById(R.id.wallet_tip_pulse);
-        if (tip != null) {tip.setVisibility(locked ? View.VISIBLE : View.GONE);}
-        if (pulse != null) {
-            pulse.animate().cancel();
-            pulse.removeCallbacks(walletPulseLoop);
-            if (locked) {
-                pulse.setVisibility(View.VISIBLE);
-                walletPulseLoop = () -> {
-                    if (isFinishing() || Store.getAddress(this) != null) {pulse.setVisibility(View.GONE); return;}
-                    pulse.setScaleX(1f); pulse.setScaleY(1f); pulse.setAlpha(0.9f);
-                    pulse.animate().scaleX(1.4f).scaleY(1.4f).alpha(0f).setDuration(1000L).withEndAction(() -> {if (walletPulseLoop != null) {pulse.postDelayed(walletPulseLoop, 500L);}}).start();
-                };
-                pulse.post(walletPulseLoop);
-            } else {
-                walletPulseLoop = null;
-                pulse.setVisibility(View.GONE);
-            }
-        }
+        updateWalletTip();
     }
 
     private void pulseWalletTip() {
@@ -329,6 +426,7 @@ public class MainActivity extends Activity {
             statusView.setVisibility(View.GONE);
             bind(cached);
         }
+        syncExtraPages(false);
         todayFp = "";
         final String addr = address;
         View root = findViewById(android.R.id.content);
@@ -393,6 +491,7 @@ public class MainActivity extends Activity {
                         WalletData active = Store.load(this);
                         if (active != null) {bind(active);}
                         if (cardDecor != null && !cardDecor.isEmpty() && cardView != null) {cardView.setDecor(cardDecor);}
+                        syncExtraPages(false);
                     }
                 });
             }, "gram-warm").start();
@@ -421,6 +520,7 @@ public class MainActivity extends Activity {
                     if (cardView != null) {cardView.setLoading(false);}
                     applyDonorBadge(donorFlag);
                     maybePreloadGifts(address, decor);
+                    syncExtraPages(false);
                 });
                 GramWidgetProvider.renderAll(appContext);
             } catch (Exception ignored) {}
@@ -461,7 +561,7 @@ public class MainActivity extends Activity {
 
     private void applyTasksVisibility() {
         if (!Store.areAllTasksDone(this)) {Store.setTasksTabHidden(this, false);}
-        if (Store.isTasksTabHidden(this)) {hideTasksTab(false);}
+        syncExtraPages(false);
     }
 
     private void renderTasks(LinearLayout list, java.util.List<Api.TaskItem> items) {
@@ -556,47 +656,30 @@ public class MainActivity extends Activity {
     private void maybeCelebrateTasks() {
         if (tasksCelebrating || Store.isTasksTabHidden(this)) {return;}
         if (!Store.areAllTasksDone(this)) {return;}
-        if (tabBar == null || tabBar.getTabCount() <= 4) {Store.setTasksTabHidden(this, true); return;}
+        View tasks = findViewById(R.id.tasks_root);
+        if (tabBar == null || tasks == null || tasks.getParent() == null) {Store.setTasksTabHidden(this, true); syncExtraPages(false); return;}
         tasksCelebrating = true;
         ViewGroup root = (ViewGroup) findViewById(android.R.id.content);
         TaskSaluteView salute = new TaskSaluteView(this);
         root.addView(salute, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         salute.play(() -> {
-            hideTasksTab(true);
-            root.removeView(salute);
-            tasksCelebrating = false;
-            applyDonorBadge(Store.isDonor(this));
-        });
-    }
-
-    private void hideTasksTab(boolean animate) {
-        if (tabBar == null || slidePager == null) {return;}
-        if (tabBar.getTabCount() <= 4) {Store.setTasksTabHidden(this, true); return;}
-        Store.setTasksTabHidden(this, true);
-        int cur = slidePager.getCurrentPage();
-        Runnable remove = () -> {
-            if (slidePager.getChildCount() >= 5) {slidePager.removePageAt(4);}
-            tabBar.setTabCount(4);
-            if (cur >= 4) {
-                slidePager.setCurrentPage(0, false);
-                tabBar.setSelectedIndex(0, false);
-                applyHeader(0);
+            Store.setTasksTabHidden(this, true);
+            if (tasks.getParent() != null) {
+                tasks.animate().alpha(0f).scaleX(.92f).scaleY(.92f).setDuration(420L).withEndAction(() -> {
+                    tasks.setAlpha(1f); tasks.setScaleX(1f); tasks.setScaleY(1f);
+                    syncExtraPages(false);
+                    root.removeView(salute);
+                    tasksCelebrating = false;
+                    applyDonorBadge(Store.isDonor(this));
+                }).start();
+                if (tabBar != null) {tabBar.animate().alpha(.55f).setDuration(200L).withEndAction(() -> tabBar.animate().alpha(1f).setDuration(280L).start()).start();}
             } else {
-                tabBar.setSelectedIndex(cur, false);
-                applyHeader(cur);
+                syncExtraPages(false);
+                root.removeView(salute);
+                tasksCelebrating = false;
+                applyDonorBadge(Store.isDonor(this));
             }
-            applyDonorBadge(Store.isDonor(this));
-        };
-        View tasks = findViewById(R.id.tasks_root);
-        if (animate && tasks != null) {
-            tasks.animate().alpha(0f).scaleX(0.92f).scaleY(0.92f).setDuration(420L).withEndAction(() -> {
-                tasks.setAlpha(1f);
-                tasks.setScaleX(1f);
-                tasks.setScaleY(1f);
-                remove.run();
-            }).start();
-            tabBar.animate().alpha(0.55f).setDuration(200L).withEndAction(() -> tabBar.animate().alpha(1f).setDuration(280L).start()).start();
-        } else {remove.run();}
+        });
     }
 
     private void applyHeader(int page) {
@@ -607,48 +690,49 @@ public class MainActivity extends Activity {
         View tip = findViewById(R.id.wallet_tip);
         View pulse = findViewById(R.id.wallet_tip_pulse);
         if (title == null) {return;}
-        boolean needWallet = Store.getAddress(this) == null;
-        if (page <= 0) {
-            title.setText(R.string.header_logo);
-            add.setVisibility(View.VISIBLE);
-            settings.setVisibility(View.VISIBLE);
-            filter.setVisibility(View.GONE);
-            if (tip != null) {tip.setVisibility(needWallet ? View.VISIBLE : View.GONE);}
-            if (pulse != null && !needWallet) {pulse.setVisibility(View.GONE);}
-            applyDonorBadge(Store.isDonor(this));
-        } else if (page == 1) {
+        View pageView = slidePager != null && page >= 0 && page < slidePager.getChildCount() ? slidePager.getChildAt(page) : null;
+        int pageId = pageView != null ? pageView.getId() : R.id.root_scroll;
+        Runnable hideTip = () -> {
+            if (tip != null) {tip.setVisibility(View.GONE);}
+            if (pulse != null) {pulse.setVisibility(View.GONE);}
+            if (headerDonor != null) {headerDonor.setVisibility(View.GONE);}
+        };
+        if (pageId == R.id.history_root) {
             title.setText(R.string.history_title);
-            add.setVisibility(View.INVISIBLE);
-            settings.setVisibility(View.GONE);
-            filter.setVisibility(View.VISIBLE);
-            if (tip != null) {tip.setVisibility(View.GONE);}
-            if (pulse != null) {pulse.setVisibility(View.GONE);}
-            if (headerDonor != null) {headerDonor.setVisibility(View.GONE);}
-        } else if (page == 2) {
-            title.setText(R.string.tokens_title);
-            add.setVisibility(View.INVISIBLE);
-            settings.setVisibility(View.GONE);
-            filter.setVisibility(View.GONE);
-            if (tip != null) {tip.setVisibility(View.GONE);}
-            if (pulse != null) {pulse.setVisibility(View.GONE);}
-            if (headerDonor != null) {headerDonor.setVisibility(View.GONE);}
-        } else if (page == 3) {
-            title.setText(R.string.nfts_title);
-            add.setVisibility(View.INVISIBLE);
-            settings.setVisibility(View.GONE);
-            filter.setVisibility(View.GONE);
-            if (tip != null) {tip.setVisibility(View.GONE);}
-            if (pulse != null) {pulse.setVisibility(View.GONE);}
-            if (headerDonor != null) {headerDonor.setVisibility(View.GONE);}
-        } else {
-            title.setText(R.string.tasks_title);
-            add.setVisibility(View.INVISIBLE);
-            settings.setVisibility(View.GONE);
-            filter.setVisibility(View.GONE);
-            if (tip != null) {tip.setVisibility(View.GONE);}
-            if (pulse != null) {pulse.setVisibility(View.GONE);}
-            if (headerDonor != null) {headerDonor.setVisibility(View.GONE);}
+            add.setVisibility(View.INVISIBLE); settings.setVisibility(View.GONE); filter.setVisibility(View.VISIBLE);
+            hideTip.run();
+            return;
         }
+        if (pageId == R.id.tokens_root) {
+            title.setText(R.string.tokens_title);
+            add.setVisibility(View.INVISIBLE); settings.setVisibility(View.GONE); filter.setVisibility(View.GONE);
+            hideTip.run();
+            return;
+        }
+        if (pageId == R.id.nfts_root) {
+            title.setText(R.string.nfts_title);
+            add.setVisibility(View.INVISIBLE); settings.setVisibility(View.GONE); filter.setVisibility(View.GONE);
+            hideTip.run();
+            return;
+        }
+        if (pageId == R.id.activate_root) {
+            title.setText(R.string.activate_title);
+            add.setVisibility(View.INVISIBLE); settings.setVisibility(View.GONE); filter.setVisibility(View.GONE);
+            hideTip.run();
+            return;
+        }
+        if (pageId == R.id.tasks_root) {
+            title.setText(R.string.tasks_title);
+            add.setVisibility(View.INVISIBLE); settings.setVisibility(View.GONE); filter.setVisibility(View.GONE);
+            hideTip.run();
+            return;
+        }
+        title.setText(R.string.header_logo);
+        add.setVisibility(View.VISIBLE);
+        settings.setVisibility(View.VISIBLE);
+        filter.setVisibility(View.GONE);
+        updateWalletTip();
+        applyDonorBadge(Store.isDonor(this));
     }
 
     private void openHistory() {
@@ -753,7 +837,7 @@ public class MainActivity extends Activity {
         picoOpen = true;
         final Dialog dialog = new Dialog(this, android.R.style.Theme_Black_NoTitleBar_Fullscreen);
         final float density = getResources().getDisplayMetrics().density;
-        final PathInterpolator ease = new PathInterpolator(0.22f, 1f, 0.36f, 1f);
+        final PathInterpolator ease = new PathInterpolator(.22f,1f,.36f,1f);
         final FrameLayout root = new FrameLayout(this);
         root.setBackgroundColor(Color.TRANSPARENT);
         root.setAlpha(0f);
@@ -854,7 +938,7 @@ public class MainActivity extends Activity {
         wayneOpen = true;
         final Dialog dialog = new Dialog(this, android.R.style.Theme_Black_NoTitleBar_Fullscreen);
         final float density = getResources().getDisplayMetrics().density;
-        final PathInterpolator ease = new PathInterpolator(0.22f, 1f, 0.36f, 1f);
+        final PathInterpolator ease = new PathInterpolator(.22f,1f,.36f,1f);
         final FrameLayout root = new FrameLayout(this);
         root.setBackgroundColor(Color.TRANSPARENT);
         root.setAlpha(0f);
@@ -878,7 +962,7 @@ public class MainActivity extends Activity {
         panel.setGravity(Gravity.CENTER_HORIZONTAL);
         int pad = Math.round(28 * density);
         panel.setPadding(pad, pad, pad, pad);
-        int side = Math.round(Math.min(getResources().getDisplayMetrics().widthPixels * 0.72f, getResources().getDisplayMetrics().heightPixels * 0.38f));
+        int side = Math.round(Math.min(getResources().getDisplayMetrics().widthPixels * .72f, getResources().getDisplayMetrics().heightPixels * .38f));
         final float radius = 22f * density;
         final boolean[] closing = {false};
         final FrameLayout card = new FrameLayout(this);
@@ -986,7 +1070,7 @@ public class MainActivity extends Activity {
 
     private static void applyCssTextShadow(TextView view) {
         float em = view.getTextSize();
-        view.setShadowLayer(0.01f, 0.05f * em, 0.05f * em, 0xFF000000);
+        view.setShadowLayer(.01f,.05f * em, .05f * em, 0xFF000000);
     }
 
     private CharSequence wayneEggWithSticker(float density) {
@@ -1045,7 +1129,7 @@ public class MainActivity extends Activity {
             updateBanner.setTranslationY(Math.round(72 * getResources().getDisplayMetrics().density));
             updateBanner.setAlpha(0f);
             updateBanner.setVisibility(View.VISIBLE);
-            updateBanner.animate().translationY(0f).alpha(1f).setDuration(420).setInterpolator(new PathInterpolator(0.22f, 1f, 0.36f, 1f)).start();
+            updateBanner.animate().translationY(0f).alpha(1f).setDuration(420).setInterpolator(new PathInterpolator(.22f,1f,.36f,1f)).start();
         }
         if (!updateDialogShown) {
             updateDialogShown = true;
@@ -1057,7 +1141,7 @@ public class MainActivity extends Activity {
         final Dialog dialog = new Dialog(this);
         dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
         final float density = getResources().getDisplayMetrics().density;
-        final PathInterpolator ease = new PathInterpolator(0.22f, 1f, 0.36f, 1f);
+        final PathInterpolator ease = new PathInterpolator(.22f,1f,.36f,1f);
         FrameLayout root = new FrameLayout(this);
         root.setBackgroundColor(0x99000000);
         root.setAlpha(0f);
@@ -1128,9 +1212,7 @@ public class MainActivity extends Activity {
             root.animate().cancel();
             sheet.animate().cancel();
             root.animate().alpha(0f).setDuration(220).setInterpolator(ease).start();
-            sheet.animate().alpha(0f).translationY(Math.round(24 * density)).setDuration(240).setInterpolator(ease).withEndAction(() -> {
-                try {if (dialog.isShowing()) {dialog.dismiss();}} catch (Exception ignored) {}
-            }).start();
+            sheet.animate().alpha(0f).translationY(Math.round(24 * density)).setDuration(240).setInterpolator(ease).withEndAction(() -> {try {if (dialog.isShowing()) {dialog.dismiss();}} catch (Exception ignored) {}}).start();
         };
         root.setOnClickListener(view -> dismiss.run());
         sheet.setOnClickListener(view -> {});
@@ -1372,6 +1454,7 @@ public class MainActivity extends Activity {
                     cardView.setDecor(cardDecor);
                     cardView.setLoading(false);
                     applyDonorBadge(donorFlag);
+                    syncExtraPages(false);
                 }
             });
             GramWidgetProvider.renderAll(appContext);
@@ -1387,7 +1470,7 @@ public class MainActivity extends Activity {
             return;
         }
         final float density = getResources().getDisplayMetrics().density;
-        final PathInterpolator ease = new PathInterpolator(0.22f, 1f, 0.36f, 1f);
+        final PathInterpolator ease = new PathInterpolator(.22f,1f,.36f,1f);
         final Dialog dialog = new Dialog(this);
         FrameLayout root = new FrameLayout(this);
         root.setBackgroundColor(0x99000000);
@@ -1547,7 +1630,7 @@ public class MainActivity extends Activity {
         Window window = dialog.getWindow();
         if (window != null) {
             window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
-            window.setLayout(Math.round(getResources().getDisplayMetrics().widthPixels * 0.92f), ViewGroup.LayoutParams.WRAP_CONTENT);
+            window.setLayout(Math.round(getResources().getDisplayMetrics().widthPixels * .92f), ViewGroup.LayoutParams.WRAP_CONTENT);
         }
         if (!ReceiveActivity.bindReceiveViews(this, dialog.findViewById(R.id.receive_panel), address)) {return;}
         dialog.findViewById(R.id.receive_close).setOnClickListener(v -> dialog.dismiss());
@@ -1560,7 +1643,6 @@ public class MainActivity extends Activity {
             startActivity(new Intent(this, SettingsActivity.class));
             return;
         }
-
         AppWidgetManager manager = AppWidgetManager.getInstance(this);
         if (!manager.isRequestPinAppWidgetSupported()) {
             Toast.makeText(this, R.string.pin_unsupported, Toast.LENGTH_LONG).show();

@@ -330,7 +330,6 @@ final class TabPages {
 
     private void showTxDetail(Tx tx) {TxDetail.show(activity, tx);}
 
-
     private void loadTokens(String cursor, boolean append) {
         if (tokensLoading || boundAddress == null) {return;}
         tokensLoading = true;

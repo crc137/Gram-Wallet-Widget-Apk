@@ -32,6 +32,7 @@
             <include layout="@layout/activity_history" />
             <include layout="@layout/activity_tokens" />
             <include layout="@layout/activity_nfts" />
+            <include layout="@layout/page_activate" />
             <include layout="@layout/page_tasks" />
         </xyz.gramapple.wallet.SlidePager>
     </LinearLayout>

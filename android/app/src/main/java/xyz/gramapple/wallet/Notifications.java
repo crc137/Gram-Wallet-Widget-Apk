@@ -244,9 +244,7 @@ final class Notifications {
         Tx focus = gifts.get(0);
         for (Tx tx : gifts) {if (tx.time > focus.time) {focus = tx;}}
         String title = context.getString(R.string.notif_gift_title);
-        String text = gifts.size() == 1
-            ? context.getString(R.string.notif_gift_text, focus.nftName.isEmpty() ? context.getString(R.string.tx_nft) : focus.nftName)
-            : context.getString(R.string.notif_gift_multi, gifts.size());
+        String text = gifts.size() == 1? context.getString(R.string.notif_gift_text, focus.nftName.isEmpty() ? context.getString(R.string.tx_nft) : focus.nftName): context.getString(R.string.notif_gift_multi, gifts.size());
         Intent history = new Intent(context, HistoryActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         history.putExtra(HistoryActivity.EXTRA_TX_ID, focus.id);
         PendingIntent content = PendingIntent.getActivity(context, 2, history, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);

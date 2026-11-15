@@ -29,7 +29,7 @@ import java.util.Map;
 
 final class QrEncoder {
     private static final int TELEGRAM_BLUE = 0xFF0088CC;
-    private static final float LOGO_RATIO = 0.14f;
+    private static final float LOGO_RATIO = .14f;
     private QrEncoder() {}
 
     static Bitmap bitmap(Resources resources, String text, int sizePx) {
@@ -40,9 +40,9 @@ final class QrEncoder {
         int scale = Math.max(3, sizePx / dim);
         int out = dim * scale;
         int logoBox = Math.max(scale * 3, Math.round(out * LOGO_RATIO));
-        float mid = out * 0.5f;
-        float plateR = logoBox * 0.58f;
-        float clearR = plateR + scale * 0.25f;
+        float mid = out * .5f;
+        float plateR = logoBox * .58f;
+        float clearR = plateR + scale * .25f;
         float clearR2 = clearR * clearR;
         Bitmap bitmap = Bitmap.createBitmap(out, out, Bitmap.Config.ARGB_8888);
         bitmap.eraseColor(Color.WHITE);
@@ -57,8 +57,8 @@ final class QrEncoder {
                 if (!modules[y][x] || isFinderModule(x, y, n)) {continue;}
                 float x0 = (x + quiet) * scale;
                 float y0 = (y + quiet) * scale;
-                float mcx = x0 + scale * 0.5f;
-                float mcy = y0 + scale * 0.5f;
+                float mcx = x0 + scale * .5f;
+                float mcy = y0 + scale * .5f;
                 float dx = mcx - mid;
                 float dy = mcy - mid;
                 if (dx * dx + dy * dy <= clearR2) {continue;}
@@ -78,8 +78,8 @@ final class QrEncoder {
         canvas.drawCircle(mid, mid, plateR, paint);
         Bitmap logo = BitmapFactory.decodeResource(resources, R.drawable.arzunas_logo);
         if (logo != null) {
-            float left = mid - logoBox * 0.5f;
-            float top = mid - logoBox * 0.5f;
+            float left = mid - logoBox * .5f;
+            float top = mid - logoBox * .5f;
             canvas.drawBitmap(logo, null, new RectF(left, top, left + logoBox, top + logoBox),new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG));
             logo.recycle();
         }
@@ -97,11 +97,11 @@ final class QrEncoder {
 
     private static void drawRoundedDot(Canvas canvas, Paint paint, Path path, RectF oval,float x0, float y0, float size, boolean left, boolean right, boolean top, boolean bottom) {
         int count = (left ? 1 : 0) + (right ? 1 : 0) + (top ? 1 : 0) + (bottom ? 1 : 0);
-        float cx = x0 + size * 0.5f;
-        float cy = y0 + size * 0.5f;
+        float cx = x0 + size * .5f;
+        float cy = y0 + size * .5f;
         path.reset();
         if (count == 0) {
-            path.addCircle(cx, cy, size * 0.5f, Path.Direction.CW);
+            path.addCircle(cx, cy, size * .5f, Path.Direction.CW);
             canvas.drawPath(path, paint);
             return;
         }
@@ -128,11 +128,11 @@ final class QrEncoder {
         canvas.translate(cx, cy);
         canvas.rotate(rotationDeg);
         path.reset();
-        oval.set(-size * 0.5f, -size * 0.5f, size * 0.5f, size * 0.5f);
-        path.moveTo(0f, -size * 0.5f);
+        oval.set(-size * .5f, -size * .5f, size * .5f, size * .5f);
+        path.moveTo(0f, -size * .5f);
         path.arcTo(oval, -90f, 180f, false);
-        path.lineTo(-size * 0.5f, size * 0.5f);
-        path.lineTo(-size * 0.5f, -size * 0.5f);
+        path.lineTo(-size * .5f, size * .5f);
+        path.lineTo(-size * .5f, -size * .5f);
         path.close();
         canvas.drawPath(path, paint);
         canvas.restore();
@@ -143,13 +143,13 @@ final class QrEncoder {
         canvas.translate(cx, cy);
         canvas.rotate(rotationDeg);
         path.reset();
-        oval.set(-size * 0.5f, -size * 0.5f, size * 0.5f, size * 0.5f);
-        path.moveTo(0f, -size * 0.5f);
+        oval.set(-size * .5f, -size * .5f, size * .5f, size * .5f);
+        path.moveTo(0f, -size * .5f);
         path.arcTo(oval, -90f, 90f, false);
-        path.lineTo(size * 0.5f, size * 0.5f);
-        path.lineTo(-size * 0.5f, size * 0.5f);
-        path.lineTo(-size * 0.5f, -size * 0.5f);
-        path.lineTo(0f, -size * 0.5f);
+        path.lineTo(size * .5f, size * .5f);
+        path.lineTo(-size * .5f, size * .5f);
+        path.lineTo(-size * .5f, -size * .5f);
+        path.lineTo(0f, -size * .5f);
         path.close();
         canvas.drawPath(path, paint);
         canvas.restore();
@@ -158,8 +158,8 @@ final class QrEncoder {
     private static void drawExtraRoundedFinder(Canvas canvas, Paint paint, Path path, RectF oval,float left, float top, float module) {
         float size = module * 7f;
         float n = module;
-        float cx = left + size * 0.5f;
-        float cy = top + size * 0.5f;
+        float cx = left + size * .5f;
+        float cy = top + size * .5f;
         canvas.save();
         canvas.translate(cx, cy);
         path.reset();

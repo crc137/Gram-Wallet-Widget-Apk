@@ -42,7 +42,7 @@ final class ImageLoader {
     private static final int REVEAL_MS = 320;
     private static final float BLUR_START = 22f;
     private static final float SCALE_START = 1.06f;
-    private static final PathInterpolator EASE = new PathInterpolator(0.22f, 1f, 0.36f, 1f);
+    private static final PathInterpolator EASE = new PathInterpolator(.22f,1f,.36f,1f);
     private static final LruCache<String, Bitmap> CACHE = new LruCache<String, Bitmap>(8 * 1024 * 1024) {@Override protected int sizeOf(String key, Bitmap value) {return value.getByteCount();}};
     private static final ExecutorService POOL = Executors.newFixedThreadPool(6);
     private static final Handler MAIN = new Handler(Looper.getMainLooper());
@@ -95,7 +95,7 @@ final class ImageLoader {
         view.setScaleType(ImageView.ScaleType.FIT_CENTER);
         view.setPadding(pad, pad, pad, pad);
         view.setImageResource(R.drawable.ic_image_placeholder);
-        view.setAlpha(0.5f);
+        view.setAlpha(.5f);
         view.setScaleX(1f);
         view.setScaleY(1f);
     }

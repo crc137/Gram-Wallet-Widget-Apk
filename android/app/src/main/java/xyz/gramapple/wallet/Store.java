@@ -510,6 +510,25 @@ final class Store {
         } catch (NumberFormatException e) {return null;}
     }
 
+    static boolean hasCard(Context context) {
+        String address = getAddress(context);
+        if (address == null) {return false;}
+        SharedPreferences prefs = preferences(context);
+        if (!address.equals(prefs.getString(KEY_CARD_ADDRESS, null))) {return false;}
+        String json = prefs.getString(KEY_CARD, null);
+        return json != null && !json.isEmpty();
+    }
+
+    static boolean hasCardCache(Context context, String address) {
+        if (address == null) {return false;}
+        try {
+            JSONObject o = cacheRoot(context).optJSONObject(address);
+            if (o == null) {return false;}
+            String card = o.optString("card", "");
+            return card != null && !card.isEmpty();
+        } catch (Exception ignored) {return false;}
+    }
+
     static CardDecor loadCard(Context context) {
         String address = getAddress(context);
         if (address == null) {return CardDecor.EMPTY;}

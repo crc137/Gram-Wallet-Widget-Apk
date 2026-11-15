@@ -29,13 +29,13 @@ public class MorphTabBar extends View {
         void onTabSelected(int index);
         default void onTabLocked(int index) {}
     }
-    private static final int MAX_TABS = 5;
+    private static final int MAX_TABS = 6;
     private static final int COLOR_TRACK = 0xFFFFFFFF;
     private static final int COLOR_PILL = 0xFF0088FF;
     private static final int COLOR_ICON_OFF = 0xFF0088FF;
     private static final int COLOR_ICON_ON = 0xFFFFFFFF;
     private static final int COLOR_ICON_LOCKED = 0xFFAEB4BC;
-    private static final float STRETCH = 0.45f;
+    private static final float STRETCH = .45f;
     private final Paint trackPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint pillPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint shadowPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -45,8 +45,8 @@ public class MorphTabBar extends View {
     private final Drawable[] icons = new Drawable[MAX_TABS];
     private final float[] optOffX = new float[MAX_TABS];
     private final float[] optOffY = new float[MAX_TABS];
-    private final int[] iconIds = {R.drawable.ic_tab_wallet, R.drawable.ic_tab_history, R.drawable.ic_tab_tokens, R.drawable.ic_tab_nfts, R.drawable.ic_tab_tasks};
-    private int tabCount = MAX_TABS;
+    private int[] iconIds = {R.drawable.ic_tab_wallet, R.drawable.ic_tab_history, R.drawable.ic_tab_tokens, R.drawable.ic_tab_nfts, R.drawable.ic_tab_tasks};
+    private int tabCount = 5;
     private float indexPos;
     private float leadPos;
     private float trailPos;
@@ -75,12 +75,34 @@ public class MorphTabBar extends View {
         trackPaint.setColor(COLOR_TRACK);
         pillPaint.setColor(COLOR_PILL);
         shadowPaint.setColor(0x22000000);
+        applyIcons(iconIds);
+    }
+
+    private void applyIcons(int[] ids) {
+        iconIds = ids == null ? new int[0] : ids.clone();
+        tabCount = Math.max(1, Math.min(MAX_TABS, iconIds.length));
         for (int i = 0; i < MAX_TABS; i++) {
+            icons[i] = null;
+            optOffX[i] = 0f;
+            optOffY[i] = 0f;
+            if (i >= iconIds.length) {continue;}
             Drawable raw = getContext().getDrawable(iconIds[i]);
             if (raw == null) {continue;}
             icons[i] = raw.mutate();
             measureOpticalOffset(icons[i], i);
         }
+        selectedIndex = clampIndex(selectedIndex);
+        indexPos = leadPos = trailPos = selectedIndex;
+        requestLayout();
+        invalidate();
+    }
+
+    public void setTabIcons(int[] ids) {
+        if (ids == null || ids.length == 0) {return;}
+        boolean same = ids.length == iconIds.length;
+        if (same) for (int i = 0; i < ids.length; i++) if (ids[i] != iconIds[i]) {same = false; break;}
+        if (same) {return;}
+        applyIcons(ids);
     }
 
     private void measureOpticalOffset(Drawable icon, int index) {
@@ -104,8 +126,8 @@ public class MorphTabBar extends View {
         }
         bmp.recycle();
         if (maxX < minX) {return;}
-        optOffX[index] = (size * 0.5f - (minX + maxX) * 0.5f) / size;
-        optOffY[index] = (size * 0.5f - (minY + maxY) * 0.5f) / size;
+        optOffX[index] = (size * .5f - (minX + maxX) * .5f) / size;
+        optOffY[index] = (size * .5f - (minY + maxY) * .5f) / size;
     }
 
     public void setListener(Listener listener) {this.listener = listener;}
@@ -125,6 +147,14 @@ public class MorphTabBar extends View {
     public void setTabCount(int count) {
         int next = Math.max(1, Math.min(MAX_TABS, count));
         if (next == tabCount) {return;}
+        if (next <= iconIds.length) {
+            tabCount = next;
+            selectedIndex = clampIndex(selectedIndex);
+            indexPos = leadPos = trailPos = selectedIndex;
+            requestLayout();
+            invalidate();
+            return;
+        }
         tabCount = next;
         selectedIndex = clampIndex(selectedIndex);
         indexPos = leadPos = trailPos = selectedIndex;
@@ -149,11 +179,11 @@ public class MorphTabBar extends View {
         indexPos = progress;
         float from = (float) Math.floor(progress);
         float t = progress - from;
-        if (t < 0.001f) {leadPos = trailPos = progress;}
+        if (t < .001f) {leadPos = trailPos = progress;}
         else {
             float ease = t * t * (3f - 2f * t);
-            leadPos = from + Math.min(1f, ease / Math.max(0.001f, 1f - STRETCH * 0.5f));
-            trailPos = from + Math.max(0f, (ease - STRETCH) / Math.max(0.001f, 1f - STRETCH));
+            leadPos = from + Math.min(1f, ease / Math.max(.001f, 1f - STRETCH * .5f));
+            trailPos = from + Math.max(0f, (ease - STRETCH) / Math.max(.001f, 1f - STRETCH));
             leadPos = Math.min(from + 1f, leadPos);
             trailPos = Math.max(from, trailPos);
         }
@@ -167,13 +197,13 @@ public class MorphTabBar extends View {
         final float end = index;
         animator = ValueAnimator.ofFloat(0f, 1f);
         animator.setDuration(420L);
-        animator.setInterpolator(new PathInterpolator(0.2f, 0f, 0f, 1f));
+        animator.setInterpolator(new PathInterpolator(.2f,0f,0f,1f));
         animator.addUpdateListener(a -> {
             float t = (float) a.getAnimatedValue();
             indexPos = start + (end - start) * t;
             float dir = end >= start ? 1f : -1f;
-            float leadT = Math.min(1f, t / Math.max(0.001f, 1f - STRETCH * 0.35f));
-            float trailT = Math.max(0f, (t - STRETCH) / Math.max(0.001f, 1f - STRETCH));
+            float leadT = Math.min(1f, t / Math.max(.001f, 1f - STRETCH * .35f));
+            float trailT = Math.max(0f, (t - STRETCH) / Math.max(.001f, 1f - STRETCH));
             float lead = start + (end - start) * leadT;
             float trail = start + (end - start) * trailT;
             if (dir > 0) {leadPos = lead; trailPos = trail;}
@@ -203,10 +233,10 @@ public class MorphTabBar extends View {
             Drawable icon = icons[i];
             if (icon == null) {continue;}
             int color = onPill ? COLOR_ICON_ON : (extrasLocked && i > 0 ? COLOR_ICON_LOCKED : COLOR_ICON_OFF);
-            float icx = slotLeft(i) + tabW * 0.5f + optOffX[i] * iconSize;
+            float icx = slotLeft(i) + tabW * .5f + optOffX[i] * iconSize;
             float icy = cy + optOffY[i] * iconSize;
-            int left = Math.round(icx - iconSize * 0.5f);
-            int top = Math.round(icy - iconSize * 0.5f);
+            int left = Math.round(icx - iconSize * .5f);
+            int top = Math.round(icy - iconSize * .5f);
             icon.setBounds(left, top, left + Math.round(iconSize), top + Math.round(iconSize));
             icon.setTint(color);
             icon.draw(canvas);
@@ -218,9 +248,9 @@ public class MorphTabBar extends View {
         float w = getWidth();
         float h = getHeight();
         if (w <= 0 || h <= 0) {return;}
-        float top = (h - innerH) * 0.5f - pad;
+        float top = (h - innerH) * .5f - pad;
         trackRect.set(0, top, w, top + innerH + pad * 2f);
-        float radius = trackRect.height() * 0.5f;
+        float radius = trackRect.height() * .5f;
         canvas.drawRoundRect(trackRect.left, trackRect.top + 2f * density, trackRect.right, trackRect.bottom + 2f * density, radius, radius, shadowPaint);
         canvas.drawRoundRect(trackRect, radius, radius, trackPaint);
         drawIcons(canvas, false);
@@ -230,7 +260,7 @@ public class MorphTabBar extends View {
         float right = slotLeft(rightIndex) + tabW;
         float pillPad = 2f * density;
         pillRect.set(left + pillPad, trackRect.top + pad, right - pillPad, trackRect.bottom - pad);
-        float pr = pillRect.height() * 0.5f;
+        float pr = pillRect.height() * .5f;
         canvas.save();
         clipPath.reset();
         clipPath.addRoundRect(pillRect, pr, pr, Path.Direction.CW);

@@ -35,7 +35,6 @@ public final class AddressRingView extends View {
     private float pathLen;
     private float offset;
     private ValueAnimator anim;
-
     public AddressRingView(Context context) {this(context, null);}
     public AddressRingView(Context context, AttributeSet attrs) {this(context, attrs, 0);}
     public AddressRingView(Context context, AttributeSet attrs, int defStyleAttr) {

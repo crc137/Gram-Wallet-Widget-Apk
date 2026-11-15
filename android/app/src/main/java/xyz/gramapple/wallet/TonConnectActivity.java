@@ -125,7 +125,7 @@ public class TonConnectActivity extends Activity {
             int read;
             while ((read = stream.read(chunk)) != -1) {buffer.write(chunk, 0, read);}
             return buffer.toString("UTF-8");
-        } catch (Exception error) {return "<html><body style=\"background:#0066DD;color:#fff;font-family:sans-serif;padding:24px\">"+ "Не удалось загрузить TON Connect.</body></html>";}
+        } catch (Exception error) {return "<html><body style=\"background:#0066DD;color:#fff;font-family:sans-serif;padding:24px\">"+ "Unable to load TON Connect.</body></html>";}
     }
 
     private final class Bridge {@JavascriptInterface public void onEvent(String json) {runOnUiThread(() -> handleEvent(json));}}

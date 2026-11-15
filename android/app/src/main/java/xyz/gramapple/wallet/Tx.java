@@ -48,8 +48,8 @@ final class Tx {
         if (isNft() || !incoming) {return false;}
         if (!TYPE_TON.equals(type) && !type.isEmpty() && !type.contains("transfer")) {return false;}
         String note = comment == null ? "" : comment.trim();
-        if (gram <= 0.000001d) {return true;}
-        if (gram <= 0.001d) {return true;}
+        if (gram <= .000001d) {return true;}
+        if (gram <= .001d) {return true;}
         if (note.isEmpty()) {return false;}
         if (!success && gram <= 1.0d) {return true;}
         return gram <= 2.0d && looksLikePromo(note);

@@ -43,7 +43,7 @@ public class SlidePager extends ViewGroup {
     public SlidePager(Context context) {this(context, null);}
     public SlidePager(Context context, AttributeSet attrs) {
         super(context, attrs);
-        scroller = new OverScroller(context, new PathInterpolator(0.2f, 0f, 0f, 1f));
+        scroller = new OverScroller(context, new PathInterpolator(.2f,0f,0f,1f));
         ViewConfiguration vc = ViewConfiguration.get(context);
         touchSlop = vc.getScaledTouchSlop();
         minFling = vc.getScaledMinimumFlingVelocity();
